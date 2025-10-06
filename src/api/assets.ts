@@ -5,7 +5,7 @@ export interface Asset {
   id: number;
   title: string;
   slug: string;
-  type: 'single' | 'album' | 'basket';
+  type: 'single' | 'basket';
   artist: string | null;
   genre: string | null;
   price: string; // decimal as string
@@ -31,7 +31,7 @@ export interface AssetsResponse {
 export interface CreateAssetRequest {
   title: string;
   slug?: string;
-  type: 'single' | 'album' | 'basket';
+  type: 'single' | 'basket';
   artist?: string;
   genre?: string;
   price: number;
@@ -49,9 +49,7 @@ export interface BulkCreateAssetRequest {
   assets: CreateAssetRequest[];
 }
 
-export interface BuyAssetRequest {
-  quantity: number;
-}
+
 
 export interface BuyAssetResponse {
   message: string;
@@ -105,6 +103,10 @@ export const deleteAsset = async (id: number): Promise<{ message: string }> => {
   const response = await api.delete<{ message: string }>(`assets/${id}`);
   return response.data;
 };
+
+export interface BuyAssetRequest {
+  quantity: number;
+}
 
 export const buyAsset = async (assetId: number, buyData: BuyAssetRequest): Promise<BuyAssetResponse> => {
   const response = await api.post<BuyAssetResponse>(`assets/${assetId}/buy`, buyData);

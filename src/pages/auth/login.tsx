@@ -7,10 +7,9 @@ import { Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/RoyaFi_2.png";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../store";
-import { setCredentials } from "../../slices/userSlice"; // Changed import
+import { setCredentials } from "../../slices/userSlice";
 import api from "../../services/axios";
 
-// Add interface to match your API response
 interface LoginResponse {
   success: boolean;
   data: {
@@ -18,7 +17,7 @@ interface LoginResponse {
       id: number;
       name: string;
       email: string;
-      is_admin: boolean;
+      role: string;
       created_at: string;
       updated_at: string;
       email_verified_at: string;
@@ -37,57 +36,64 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-const handleContinue = async () => {
-  if (email.trim() === "" || password.trim() === "") {
-    setError("Please fill in both email and password.");
-    return;
-  }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    setError("Please enter a valid email address.");
-    return;
-  }
+  const handleContinue = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault(); // If using form submit
 
-  try {
-    setError("");
-    setLoading(true);
-
-    const response = await api.post("/login", {
-      email,
-      password,
-    });
-
-    console.log("Full response:", response);
-    console.log("Response data:", response.data);
-
-    const { user, token } = response.data.data;
+    if (email.trim() === "" || password.trim() === "") {
+      setError("Please fill in both email and password.");
+      return;
+    }
     
-    console.log("Token extracted:", token);
-    console.log("User data:", user);
-    console.log("Is admin:", user.is_admin); // Add this line to verify the value
-    
-    if (!token) {
-      setError("Invalid response from server.");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    dispatch(setCredentials({ user, token }));
+    try {
+      setError("");
+      setLoading(true);
 
-    // ✅ Redirect based on user role
-    if (user.is_admin) {
-      navigate("/admin");
-    } else {
-      navigate("/dashboard");
+      const response = await api.post("/login", { email, password });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Full response:", response);
+        console.log("Response data:", response.data);
+      }
+
+      const { user, token } = response.data;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Token extracted:", token);
+        console.log("User data:", user);
+        console.log("Is admin:", user.role);
+      }
+      
+      if (!token) {
+        setError("Invalid response from server.");
+        return;
+      }
+
+      // Optional: Persist token for session survival
+      // localStorage.setItem('token', token);
+
+      dispatch(setCredentials({ user, token }));
+
+      if (user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Login error:", err);
+        console.error("Error response:", err.response);
+      }
+      setError(err.response?.data?.message || "Login failed. Try again.");
+    } finally {
+      setLoading(false);
     }
-  } catch (err: any) {
-    console.error("Login error:", err);
-    console.error("Error response:", err.response);
-    setError(err.response?.data?.message || "Login failed. Try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -96,71 +102,77 @@ const handleContinue = async () => {
         <h1 className="text-3xl font-semibold mb-6">Login</h1>
         <Card className="bg-transparent border-0 shadow-none">
           <CardContent className="space-y-4">
-            {/* Email Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <Mail className="w-5 h-5 text-gray-400" />
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-transparent border-none text-white focus:ring-0 h-full"
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <Lock className="w-5 h-5 text-gray-400" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-transparent border-none text-white focus:ring-0 h-full flex-1"
-              />
-              {showPassword ? (
-                <EyeOff
-                  className="w-5 h-5 text-gray-400 cursor-pointer"
-                  onClick={() => setShowPassword(false)}
+            <form onSubmit={handleContinue} className="space-y-4">
+              {/* Email Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
+                <Mail className="w-5 h-5 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-transparent border-none text-white focus:ring-0 h-full flex-1"
                 />
-              ) : (
-                <Eye
-                  className="w-5 h-5 text-gray-400 cursor-pointer"
-                  onClick={() => setShowPassword(true)}
-                />
-              )}
-            </div>
-
-            {/* Error Message */}
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-
-            <div className="flex flex-col items-center space-y-4 mt-6">
-              <Link
-                to="/recover"
-                className="text-sm text-gray-400 hover:underline cursor-pointer text-center"
-              >
-                Recover your password
-              </Link>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  onClick={handleContinue}
-                  disabled={loading}
-                  className="hover:bg-[#20475bcf] w-64 h-12 text-lg inline-flex items-center rounded-full bg-[#20475a] px-2 py-1 font-medium text-[#009ad2]"
-                >
-                  {loading ? "Loadinga..." : "Continue"}
-                </Button>
-
-                <Link to="/register">
-                  <Button
-                    variant="secondary"
-                    className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-full w-64 h-12 text-lg"
-                  >
-                    Sign Up
-                  </Button>
-                </Link>
               </div>
-            </div>
+
+              {/* Password Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14 relative">
+                <Lock className="w-5 h-5 text-gray-400" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-transparent border-none text-white focus:ring-0 h-full flex-1 pr-10" // Added pr-10 for icon space
+                />
+                <div className="absolute right-3"> {/* Right-aligned icon container */}
+                  {showPassword ? (
+                    <EyeOff
+                      className="w-5 h-5 text-gray-400 cursor-pointer"
+                      onClick={() => setShowPassword(false)}
+                      aria-label="Hide password"
+                    />
+                  ) : (
+                    <Eye
+                      className="w-5 h-5 text-gray-400 cursor-pointer"
+                      onClick={() => setShowPassword(true)}
+                      aria-label="Show password"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+
+              <div className="flex flex-col items-center space-y-4 mt-6">
+                <Link
+                  to="/recover"
+                  className="text-sm text-gray-400 hover:underline cursor-pointer text-center"
+                >
+                  Recover your password
+                </Link>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button
+                    type="submit" // Now uses form submit
+                    disabled={loading}
+                    className="hover:bg-[#20475bcf] w-64 h-12 text-lg inline-flex items-center rounded-full bg-[#20475a] px-2 py-1 font-medium text-[#009ad2]"
+                  >
+                    {loading ? "Loading..." : "Continue"}
+                  </Button>
+
+                  <Link to="/register">
+                    <Button
+                      variant="secondary"
+                      className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-full w-64 h-12 text-lg"
+                    >
+                      Sign Up
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </form>
           </CardContent>
         </Card>
       </div>
@@ -172,7 +184,7 @@ const handleContinue = async () => {
             <div className="flex items-center justify-center">
               <img
                 src={logo}
-                alt="RHKM Logo"
+                alt="RoyaFi Logo" // Updated alt for accuracy
                 className="h-48 w-48 object-contain"
               />
             </div>

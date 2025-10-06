@@ -12,6 +12,8 @@ import Admin from "./pages/admin";
 import ProfilePage from "./pages/dashboard/ProfilePage";
 import MusicPage from "./pages/dashboard/MusicInvestmentCard";
 import VerifyEmail from "./pages/auth/VerifyEmail";
+// import React = require("react");
+// import React = require("react");
 
 export default function App() {
   return (

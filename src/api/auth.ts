@@ -18,7 +18,7 @@ export interface RegisterResponse {
       id: number;
       name: string;
       email: string;
-      is_admin: boolean;
+      role: string;
       created_at: string;
       updated_at: string;
       // Removed email_verified_at since it's not in the response
@@ -45,7 +45,7 @@ export interface LoginResponse {
       id: number;
       name: string;
       email: string;
-      is_admin: boolean;
+      role: string;
       created_at: string;
       updated_at: string;
       email_verified_at: string | null;
@@ -73,7 +73,7 @@ export interface VerifyEmailResponse {
       id: number;
       name: string;
       email: string;
-      is_admin: boolean;
+      role: string;
       created_at: string;
       updated_at: string;
       email_verified_at: string;
@@ -102,4 +102,4 @@ export interface ResendVerificationResponse {
 export const resendVerification = async (emailData: ResendVerificationRequest): Promise<ResendVerificationResponse> => {
   const response = await api.post<ResendVerificationResponse>("resend-verification", emailData);
   return response.data;
-};
+};``

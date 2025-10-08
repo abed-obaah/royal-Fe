@@ -30,7 +30,7 @@ import AlbumGrid from "@/components/admin/mainhead";
 import UploadForm from "@/components/admin/UploadForm";
 import ReferralDrawer from "@/components/ReferralDrawer";
 import NotificationsDrawer from "@/components/Notifications";
-import CryptoPaymentModal  from "@/components/BlurModal";
+import CryptoPaymentModal from "@/components/BlurModal";
 import Wallet from "@/pages/dashboard/wallet";
 import Portfolio from "@/components/admin/deposit";
 import Royalty from "@/components/admin/withdraw";
@@ -39,6 +39,7 @@ import Orders2 from "@/components/admin/baskets";
 import Manage from "@/components/admin/manage";
 import KycDashboard from "@/components/admin/KycDashboard";
 import Settings from "@/pages/dashboard/ProfilePage";
+import Songs from "@/components/admin/songs";
 
 
 
@@ -79,11 +80,12 @@ const HomeContent = () => {
 const navigation = [
   { name: 'Dashboard', href: '#', icon: HomeIcon, component: HomeContent },
   { name: 'Deposits', href: '#', icon: UsersIcon, component: Portfolio },
-//   { name: 'Markets', href: '#', icon: FolderIcon, component: MarketsContent },
+  //   { name: 'Markets', href: '#', icon: FolderIcon, component: MarketsContent },
   { name: 'Withdraw', href: '#', icon: CalendarIcon, component: Royalty },
-   { name: 'Assets', href: '#', icon: ChartPieIcon, component: Orders },
-   { name: 'Baskets', href: '#', icon: ChartPieIcon, component: Orders2 },
-   { name: 'kYC', href: '#', icon: ChartPieIcon, component: KycDashboard },
+  { name: 'Songs', href: '#', icon: ChartPieIcon, component: Songs },
+  { name: 'Assets', href: '#', icon: ChartPieIcon, component: Orders },
+  { name: 'Baskets', href: '#', icon: ChartPieIcon, component: Orders2 },
+  { name: 'kYC', href: '#', icon: ChartPieIcon, component: KycDashboard },
   { name: 'Referrals', href: '#', icon: DocumentDuplicateIcon, component: Wallet },
   { name: 'Manage Users', href: '#', icon: ChartPieIcon, component: Manage },
   { name: 'Settings', href: '#', icon: Cog6ToothIcon, component: Settings },
@@ -96,7 +98,7 @@ const teams = [
 ]
 
 const userNavigation = [
-  { name: 'Your profile', href: '#',component: Settings  },
+  { name: 'Your profile', href: '#', component: Settings },
   { name: 'Sign out', href: '#' },
 ]
 
@@ -143,12 +145,12 @@ export default function Example() {
 
               <div className="relative flex grow flex-col gap-y-5 overflow-y-auto bg-[#222629] px-6 pb-4">
                 <div className="flex h-16 shrink-0 items-center justify-center">
-                            <img
-                                alt="Your Company"
-                                src={Logo}
-                                className="w-48 h-auto object-contain"
-                            />
-                            </div>
+                  <img
+                    alt="Your Company"
+                    src={Logo}
+                    className="w-48 h-auto object-contain"
+                  />
+                </div>
 
                 <nav className="relative flex flex-1 flex-col">
                   <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -204,13 +206,13 @@ export default function Example() {
 
         <div className="hidden bg-gray-900 lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
           <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-[#31373e] bg-[#222629] px-6 pb-4">
-          <div className="flex h-16 shrink-0 items-center justify-center">
-  <img
-    alt="Your Company"
-    src={Logo}
-    className="w-48 h-auto object-contain"
-  />
-</div>
+            <div className="flex h-16 shrink-0 items-center justify-center">
+              <img
+                alt="Your Company"
+                src={Logo}
+                className="w-48 h-auto object-contain"
+              />
+            </div>
 
 
             <nav className="flex flex-1 flex-col">
@@ -245,7 +247,7 @@ export default function Example() {
                     ))}
                   </ul>
                 </li>
-               
+
               </ul>
             </nav>
           </div>
@@ -278,11 +280,11 @@ export default function Example() {
                 />
               </form>
               <div className="flex items-center gap-x-4 lg:gap-x-6">
-                <button type="button" onClick={() => setOpen(true)}  className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+                <button type="button" onClick={() => setOpen(true)} className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
                   <span className="sr-only">View notifications</span>
                   <GiftIcon aria-hidden="true" className="size-6" />
                 </button>
-                <button type="button" onClick={() => setOpenNotif(true)}  className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+                <button type="button" onClick={() => setOpenNotif(true)} className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
                   <span className="sr-only">View notifications</span>
                   <BellIcon aria-hidden="true" className="size-6" />
                 </button>
@@ -310,42 +312,42 @@ export default function Example() {
                     className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-[#31373e] py-2 shadow-lg outline-1 outline-gray-900/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
                   >
                     {userNavigation.map((item) => (
-                                <MenuItem key={item.name}>
-                                    <a
-                                    href={item.href}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        handleNavClick(item.name);
-                                        setSidebarOpen(false);
-                                    }}
-                                    className={classNames(
-                                        item.name === activeNav
-                                        ? 'bg-[#333940] text-white'
-                                        : 'text-gray-700 hover:bg-[#333940] hover:text-white',
-                                        'group flex gap-x-3 rounded-md p-2 text-md/6 font-semibold cursor-pointer'
-                                    )}
-                                    >
-                                    {/* Show icon only if it exists in userNavigation */}
-                                    {item.icon && (
-                                        <item.icon
-                                        aria-hidden="true"
-                                        className={classNames(
-                                            item.name === activeNav
-                                            ? 'text-white'
-                                            : 'text-gray-400 group-hover:text-white',
-                                            'size-6 shrink-0'
-                                        )}
-                                        />
-                                    )}
-                                    {item.name}
-                                    </a>
-                                </MenuItem>
-                                ))}
+                      <MenuItem key={item.name}>
+                        <a
+                          href={item.href}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleNavClick(item.name);
+                            setSidebarOpen(false);
+                          }}
+                          className={classNames(
+                            item.name === activeNav
+                              ? 'bg-[#333940] text-white'
+                              : 'text-gray-700 hover:bg-[#333940] hover:text-white',
+                            'group flex gap-x-3 rounded-md p-2 text-md/6 font-semibold cursor-pointer'
+                          )}
+                        >
+                          {/* Show icon only if it exists in userNavigation */}
+                          {item.icon && (
+                            <item.icon
+                              aria-hidden="true"
+                              className={classNames(
+                                item.name === activeNav
+                                  ? 'text-white'
+                                  : 'text-gray-400 group-hover:text-white',
+                                'size-6 shrink-0'
+                              )}
+                            />
+                          )}
+                          {item.name}
+                        </a>
+                      </MenuItem>
+                    ))}
 
                   </MenuItems>
                 </Menu>
-                 <ReferralDrawer open={open} onClose={() => setOpen(false)} />
-                    <NotificationsDrawer open={openNotif} onClose={() => setOpenNotif(false)} />
+                <ReferralDrawer open={open} onClose={() => setOpen(false)} />
+                <NotificationsDrawer open={openNotif} onClose={() => setOpenNotif(false)} />
               </div>
             </div>
           </div>

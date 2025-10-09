@@ -298,7 +298,6 @@ export default function Example() {
                 </button>
 
                 <div aria-hidden="true" className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" />
-
                 <Menu as="div" className="relative">
                   <MenuButton className="relative flex items-center">
                     <span className="absolute -inset-1.5" />

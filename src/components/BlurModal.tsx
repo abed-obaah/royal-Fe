@@ -2,11 +2,18 @@ import React, { useState, useEffect } from "react";
 import { X, CheckCircle2 } from "lucide-react";
 import QRCode from "react-qr-code";
 
-export default function CryptoPaymentModal({ isOpen, onClose }) {
+interface CryptoPaymentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onDeposit: (amount: number, method: string, proof?: string) => void;
+}
+
+export default function CryptoPaymentModal({ isOpen, onClose, onDeposit }: CryptoPaymentModalProps) {
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState("");
   const [network, setNetwork] = useState("");
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [proofBase64, setProofBase64] = useState<string>("");
 
   const walletAddresses = {
     BTC: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
@@ -14,45 +21,65 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
     USDT: "TQ2J8KsxWLh8LZHpEwq3kHXZk1Ghq9j5kP",
   };
 
-  // ✅ Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setStep(1);
       setAmount("");
       setNetwork("");
       setFile(null);
+      setProofBase64("");
     }
   }, [isOpen]);
+
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      try {
+        const base64 = await convertToBase64(selectedFile);
+        setProofBase64(base64);
+      } catch (error) {
+        console.error('Error converting file to base64:', error);
+      }
+    }
+  };
+
+  const handleSubmitPayment = () => {
+    if (!amount || !network) return;
+    
+    onDeposit(
+      parseFloat(amount),
+      `Crypto - ${network}`,
+      proofBase64
+    );
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay */}
-      <div
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-      ></div>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
 
-      {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full mx-4">
-        {/* Close Icon */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
-        >
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
           <X size={24} />
         </button>
 
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Crypto Payment
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Crypto Payment</h2>
 
-        {/* Step 1: Enter Amount */}
         {step === 1 && (
           <div>
             <label className="block mb-4">
-              <span className="text-gray-700 font-medium">Enter Amount</span>
+              <span className="text-gray-700 font-medium">Enter Amount (USD)</span>
               <input
                 type="number"
                 value={amount}
@@ -64,7 +91,7 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
 
             <button
               onClick={() => {
-                if (!amount || amount <= 0) {
+                if (!amount || parseFloat(amount) <= 0) {
                   alert("Please enter a valid amount.");
                   return;
                 }
@@ -77,7 +104,6 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* Step 2: Select Network + QR */}
         {step === 2 && (
           <>
             <p className="text-sm text-gray-500 mb-2">
@@ -107,8 +133,7 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
                   {walletAddresses[network]}
                 </p>
                 <p className="mt-2 text-gray-500 text-sm">
-                  Scan the QR code or copy the wallet address to make your
-                  payment.
+                  Scan the QR code or copy the wallet address to make your payment.
                 </p>
               </div>
             )}
@@ -120,8 +145,9 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
                 </label>
                 <input
                   type="file"
-                  onChange={(e) => setFile(e.target.files[0])}
+                  onChange={handleFileChange}
                   className="w-full border rounded-xl p-2"
+                  accept="image/*,.pdf"
                 />
               </div>
             )}
@@ -136,7 +162,7 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
 
               {network && (
                 <button
-                  onClick={() => setStep(3)}
+                  onClick={handleSubmitPayment}
                   className="flex-1 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition"
                 >
                   I have made payment
@@ -144,27 +170,6 @@ export default function CryptoPaymentModal({ isOpen, onClose }) {
               )}
             </div>
           </>
-        )}
-
-        {/* Step 3: Confirmation */}
-        {step === 3 && (
-          <div className="text-center flex flex-col items-center">
-            <CheckCircle2 className="text-green-500" size={80} />
-            <h3 className="text-xl font-bold text-gray-800 mt-4">
-              Payment Submitted!
-            </h3>
-            <p className="text-gray-600 mt-2">
-              Your payment is now under review.  
-              You will be notified once it is confirmed.
-            </p>
-
-            <button
-              onClick={onClose}
-              className="mt-6 w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition"
-            >
-              Done
-            </button>
-          </div>
         )}
       </div>
     </div>

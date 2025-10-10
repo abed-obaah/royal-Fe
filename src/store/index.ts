@@ -7,6 +7,7 @@ import songReducer from "../slices/songSlice";
 import basketReducer from "../slices/basketSlice";
 import assetReducer from "../slices/assetSlice";
 import transactionReducer from "../slices/transactionSlice";
+import portfolioReducer from "../slices/portfolioSlice";
 
 const persistConfig = {
   key: "root",
@@ -22,6 +23,7 @@ export const store = configureStore({
     baskets: basketReducer,
     assets: assetReducer,
     transactions: transactionReducer,
+    portfolio: portfolioReducer,
   },
 });
 

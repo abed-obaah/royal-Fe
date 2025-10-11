@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { X, Copy, CheckCircle2 } from "lucide-react";
 import QRCode from "react-qr-code";
+import { RootState } from "../store";
 
 interface CryptoPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDeposit: (amount: number, network: string, proof: string) => void;
-  onGetWalletAddress: (network: string) => void;
   walletAddress: any;
 }
 
 export default function CryptoPaymentModal({ 
   isOpen, 
   onClose, 
-  onDeposit, 
-  onGetWalletAddress,
+  onDeposit,
   walletAddress 
 }: CryptoPaymentModalProps) {
   const [step, setStep] = useState(1);
@@ -24,12 +24,21 @@ export default function CryptoPaymentModal({
   const [proofBase64, setProofBase64] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
-  const networks = [
-    { value: 'bitcoin', label: 'Bitcoin (BTC)' },
-    { value: 'ethereum', label: 'Ethereum (ETH)' },
-    { value: 'solana', label: 'Solana (SOL)' },
-    { value: 'tether', label: 'Tether (USDT)' },
-  ];
+  // Get network wallets from Redux store
+  const { wallets } = useSelector((state: RootState) => state.networkWallets);
+
+  // Filter active wallets only and format for dropdown
+  const activeNetworks = wallets
+    .filter(wallet => wallet.is_active)
+    .map(wallet => ({
+      value: wallet.network,
+      label: `${wallet.network.charAt(0).toUpperCase() + wallet.network.slice(1)} (${wallet.network.toUpperCase()})`
+    }));
+
+  // Get the selected wallet address from Redux store based on chosen network
+  const selectedWallet = wallets.find(wallet => 
+    wallet.network === network && wallet.is_active
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -41,12 +50,6 @@ export default function CryptoPaymentModal({
       setCopied(false);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (network && step === 2) {
-      onGetWalletAddress(network);
-    }
-  }, [network, step, onGetWalletAddress]);
 
   const convertToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -72,8 +75,8 @@ export default function CryptoPaymentModal({
   };
 
   const handleCopyAddress = () => {
-    if (walletAddress?.wallet_address) {
-      navigator.clipboard.writeText(walletAddress.wallet_address);
+    if (selectedWallet?.wallet_address) {
+      navigator.clipboard.writeText(selectedWallet.wallet_address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -128,13 +131,21 @@ export default function CryptoPaymentModal({
                 className="mt-2 w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">-- Choose Network --</option>
-                {networks.map(net => (
+                {activeNetworks.map(net => (
                   <option key={net.value} value={net.value}>
                     {net.label}
                   </option>
                 ))}
               </select>
             </label>
+
+            {activeNetworks.length === 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+                <p className="text-yellow-800 text-sm">
+                  No active wallet addresses available. Please contact support or try again later.
+                </p>
+              </div>
+            )}
 
             <button
               onClick={() => {
@@ -146,9 +157,14 @@ export default function CryptoPaymentModal({
                   alert("Please select a network.");
                   return;
                 }
+                if (!selectedWallet) {
+                  alert("No active wallet found for the selected network. Please choose another network or contact support.");
+                  return;
+                }
                 setStep(2);
               }}
-              className="mt-6 w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition"
+              disabled={activeNetworks.length === 0}
+              className="mt-6 w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue to Payment
             </button>
@@ -168,18 +184,18 @@ export default function CryptoPaymentModal({
               </div>
             </div>
 
-            {walletAddress ? (
+            {selectedWallet ? (
               <div className="text-center">
                 <div className="bg-white p-4 rounded-lg shadow border mb-4">
-                  {walletAddress.qr_code ? (
+                  {selectedWallet.qr_code ? (
                     <img 
-                      src={walletAddress.qr_code} 
+                      src={selectedWallet.qr_code} 
                       alt="QR Code" 
                       className="w-48 h-48 mx-auto"
                     />
                   ) : (
                     <QRCode 
-                      value={walletAddress.wallet_address} 
+                      value={selectedWallet.wallet_address} 
                       size={192}
                       className="mx-auto"
                     />
@@ -190,7 +206,7 @@ export default function CryptoPaymentModal({
                   <p className="text-gray-600 text-sm mb-2">Send exactly ${amount} worth of {network} to:</p>
                   <div className="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
                     <p className="font-mono text-sm text-gray-800 break-all mr-2">
-                      {walletAddress.wallet_address}
+                      {selectedWallet.wallet_address}
                     </p>
                     <button
                       onClick={handleCopyAddress}
@@ -203,6 +219,13 @@ export default function CryptoPaymentModal({
                     <p className="text-green-500 text-sm mt-2">Address copied to clipboard!</p>
                   )}
                 </div>
+
+                {selectedWallet.notes && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-left">
+                    <p className="text-gray-700 text-sm font-medium mb-1">Note:</p>
+                    <p className="text-gray-600 text-xs">{selectedWallet.notes}</p>
+                  </div>
+                )}
 
                 <div className="text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                   <p className="text-sm font-medium">⚠️ Important</p>
@@ -250,8 +273,18 @@ export default function CryptoPaymentModal({
               </div>
             ) : (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading wallet address...</p>
+                <div className="text-red-500 bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <p className="font-medium">Wallet Not Available</p>
+                  <p className="text-sm mt-1">
+                    No active wallet found for {network}. Please go back and select another network.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setStep(1)}
+                  className="py-3 bg-gray-300 text-gray-800 font-semibold rounded-xl hover:bg-gray-400 transition px-6"
+                >
+                  Back to Network Selection
+                </button>
               </div>
             )}
           </>

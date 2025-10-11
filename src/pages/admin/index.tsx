@@ -40,6 +40,7 @@ import Manage from "@/components/admin/manage";
 import KycDashboard from "@/components/admin/KycDashboard";
 import Settings from "@/pages/dashboard/ProfilePage";
 import Songs from "@/components/admin/songs";
+import WalletAddress from "@/components/admin/WalletAddress";
 
 
 
@@ -82,6 +83,7 @@ const navigation = [
   { name: 'Deposits', href: '#', icon: UsersIcon, component: Portfolio },
   //   { name: 'Markets', href: '#', icon: FolderIcon, component: MarketsContent },
   { name: 'Withdraw', href: '#', icon: CalendarIcon, component: Royalty },
+  { name: 'Set Wallet', href: '#', icon: CalendarIcon, component: WalletAddress },
   { name: 'Songs', href: '#', icon: ChartPieIcon, component: Songs },
   { name: 'Assets', href: '#', icon: ChartPieIcon, component: Orders },
   { name: 'Baskets', href: '#', icon: ChartPieIcon, component: Orders2 },

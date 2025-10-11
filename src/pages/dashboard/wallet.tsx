@@ -12,10 +12,14 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import CryptoPaymentModal from "@/components/BlurModal";
+import CryptoPaymentModal from "@/components/CryptoPaymentModal";
 import WithdrawModal from "@/components/WithdrawModal";
 import { getWallet } from "@/api/wallet";
-import { createTransaction, fetchUserTransactions } from "../../slices/transactionSlice";
+import { 
+  createTransaction, 
+  fetchUserTransactions,
+  getWalletAddress 
+} from "../../slices/transactionSlice";
 import { RootState, AppDispatch } from "../../store";
 
 interface WalletData {
@@ -46,14 +50,16 @@ interface Transaction {
   amount: string;
   status: string;
   method: string;
+  network?: string;
   proof_url?: string;
+  withdrawal_details?: any;
   created_at: string;
   updated_at: string;
 }
 
 export default function WalletUI() {
   const dispatch = useDispatch<AppDispatch>();
-  const { transactions, loading: transactionsLoading } = useSelector(
+  const { userTransactions, loading: transactionsLoading, walletAddress } = useSelector(
     (state: RootState) => state.transactions
   );
   
@@ -89,13 +95,12 @@ export default function WalletUI() {
     fetchWalletData();
   }, [dispatch]);
 
-  const handleDeposit = async (amount: number, method: string, proof?: string) => {
+  const handleDeposit = async (amount: number, network: string, proof: string) => {
     try {
       await dispatch(createTransaction({
         kind: 'deposit',
-        type: 'credit',
         amount,
-        method,
+        network,
         proof_url: proof,
       })).unwrap();
       
@@ -105,21 +110,26 @@ export default function WalletUI() {
       await dispatch(fetchUserTransactions());
       
       setIsModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Deposit failed:', error);
-      alert('Deposit failed. Please try again.');
+      alert(error || 'Deposit failed. Please try again.');
     }
   };
 
-  const handleWithdraw = async (amount: number, method: string, details?: any) => {
+  const handleWithdraw = async (amount: number, method: 'crypto' | 'bank', details: any) => {
     try {
-      await dispatch(createTransaction({
+      const transactionData: any = {
         kind: 'withdraw',
-        type: 'debit',
         amount,
         method,
-        meta: details,
-      })).unwrap();
+        withdrawal_details: details,
+      };
+
+      if (method === 'crypto') {
+        transactionData.network = details.network;
+      }
+
+      await dispatch(createTransaction(transactionData)).unwrap();
       
       // Refresh wallet data and transactions
       const data: WalletApiResponse = await getWallet();
@@ -127,9 +137,18 @@ export default function WalletUI() {
       await dispatch(fetchUserTransactions());
       
       setWithdrawOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Withdrawal failed:', error);
-      alert('Withdrawal failed. Please try again.');
+      alert(error || 'Withdrawal failed. Please try again.');
+    }
+  };
+
+  const handleGetWalletAddress = async (network: string) => {
+    try {
+      await dispatch(getWalletAddress(network)).unwrap();
+    } catch (error: any) {
+      console.error('Failed to get wallet address:', error);
+      alert(error || 'Failed to get wallet address. Please try again.');
     }
   };
 
@@ -146,20 +165,20 @@ export default function WalletUI() {
     }
   };
 
-  // Filter and search transactions
+  // Filter and search transactions - use userTransactions from Redux
   const filteredTransactions = React.useMemo(() => {
-    if (!transactions) return [];
+    if (!userTransactions) return [];
     
-    return transactions.filter((tx: Transaction) => {
+    return userTransactions.filter((tx: Transaction) => {
       const matchesStatus = filterStatus === "all" || tx.status === filterStatus;
       const matchesKind = filterKind === "all" || tx.kind === filterKind;
       const matchesSearch = 
         tx.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.method.toLowerCase().includes(searchQuery.toLowerCase());
+        (tx.method && tx.method.toLowerCase().includes(searchQuery.toLowerCase()));
       
       return matchesStatus && matchesKind && matchesSearch;
     });
-  }, [transactions, filterStatus, filterKind, searchQuery]);
+  }, [userTransactions, filterStatus, filterKind, searchQuery]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -291,22 +310,22 @@ export default function WalletUI() {
       </div>
 
       {/* Quick Stats */}
-      {transactions && transactions.length > 0 && (
+      {userTransactions && userTransactions.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-[#222629] p-4 rounded-xl">
             <div className="text-gray-400 text-sm">Total Transactions</div>
-            <div className="text-white text-xl font-bold">{transactions.length}</div>
+            <div className="text-white text-xl font-bold">{userTransactions.length}</div>
           </div>
           <div className="bg-[#222629] p-4 rounded-xl">
             <div className="text-gray-400 text-sm">Pending</div>
             <div className="text-yellow-400 text-xl font-bold">
-              {transactions.filter((t: Transaction) => t.status === 'pending').length}
+              {userTransactions.filter((t: Transaction) => t.status === 'pending').length}
             </div>
           </div>
           <div className="bg-[#222629] p-4 rounded-xl">
             <div className="text-gray-400 text-sm">Completed</div>
             <div className="text-green-400 text-xl font-bold">
-              {transactions.filter((t: Transaction) => t.status === 'completed').length}
+              {userTransactions.filter((t: Transaction) => t.status === 'completed').length}
             </div>
           </div>
         </div>
@@ -380,7 +399,7 @@ export default function WalletUI() {
                     Type
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Method
+                    Method/Network
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Amount
@@ -411,7 +430,7 @@ export default function WalletUI() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-300 capitalize">
-                        {tx.method.replace(/_/g, ' ')}
+                        {tx.network ? `${tx.network}` : (tx.method || 'N/A')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -475,6 +494,8 @@ export default function WalletUI() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onDeposit={handleDeposit}
+        onGetWalletAddress={handleGetWalletAddress}
+        walletAddress={walletAddress}
       />
       
       <WithdrawModal

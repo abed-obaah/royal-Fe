@@ -1,17 +1,27 @@
-import React from "react";
+import React, { useState } from "react";
 import { X } from "lucide-react";
+import { FaPlus, FaMinus } from 'react-icons/fa';
 
 interface AssetPreviewModalProps {
   asset: any;
   isOpen: boolean;
   onClose: () => void;
-  onInvest: (asset: any) => void;
+  onInvest: (asset: any, quantity: number) => void;
 }
 
 export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: AssetPreviewModalProps) {
+  const [quantity, setQuantity] = useState(1);
+
   if (!isOpen || !asset) return null;
 
-  const getRiskColor = (risk) => {
+  const handleQuantityChange = (change: number) => {
+    const newQuantity = quantity + change;
+    setQuantity(Math.max(1, Math.min(newQuantity, asset.available_shares)));
+  };
+
+  const totalCost = (asset.price * quantity).toFixed(2);
+
+  const getRiskColor = (risk: string) => {
     switch(risk) {
       case "High": return "text-red-500";
       case "Medium": return "text-yellow-500";
@@ -20,7 +30,7 @@ export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: 
     }
   };
 
-  const getROIColor = (roi) => {
+  const getROIColor = (roi: number) => {
     return roi > 0 ? "text-green-400" : "text-red-400";
   };
 
@@ -111,9 +121,34 @@ export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: 
                 </p>
               </div>
             )}
+
+            {/* Quantity Selector */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-gray-400 text-sm">Select Quantity</p>
+                <p className="text-white font-semibold">Total: ${totalCost}</p>
+              </div>
+              <div className="flex items-center justify-between bg-gray-700/30 rounded-lg p-4">
+                <button
+                  onClick={() => handleQuantityChange(-1)}
+                  disabled={quantity <= 1}
+                  className="p-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg bg-gray-600/50"
+                >
+                  <FaMinus size={16} />
+                </button>
+                <span className="text-white font-bold text-xl mx-4">{quantity}</span>
+                <button
+                  onClick={() => handleQuantityChange(1)}
+                  disabled={quantity >= asset.available_shares}
+                  className="p-2 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg bg-gray-600/50"
+                >
+                  <FaPlus size={16} />
+                </button>
+              </div>
+            </div>
             
             <button
-              onClick={() => onInvest(asset)}
+              onClick={() => onInvest(asset, quantity)}
               disabled={asset.available_shares === 0}
               className={`w-full py-3 rounded-lg font-semibold text-lg transition-colors ${
                 asset.available_shares === 0
@@ -121,7 +156,7 @@ export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: 
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              {asset.available_shares === 0 ? 'Sold Out' : `Invest $${asset.price}`}
+              {asset.available_shares === 0 ? 'Sold Out' : `Invest $${totalCost}`}
             </button>
           </div>
         </div>

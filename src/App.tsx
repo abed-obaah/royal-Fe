@@ -1,5 +1,9 @@
-// src/App.js
+// src/App.tsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { fetchNetworkWallets } from "./slices/networkWalletSlice";
+import { AppDispatch } from "./store";
 // Remove AuthProvider import
 import ProtectedRoute from "./components/ProtectedRoute";
 import GuestRoute from "./components/GuestRoute";
@@ -12,10 +16,15 @@ import Admin from "./pages/admin";
 import ProfilePage from "./pages/dashboard/ProfilePage";
 import MusicPage from "./pages/dashboard/MusicInvestmentCard";
 import VerifyEmail from "./pages/auth/VerifyEmail";
-// import React = require("react");
-// import React = require("react");
 
 export default function App() {
+  const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    // Fetch network wallets when app loads
+    dispatch(fetchNetworkWallets());
+  }, [dispatch]);
+
   return (
     <Router>
       <Routes>

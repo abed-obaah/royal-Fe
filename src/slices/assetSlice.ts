@@ -92,7 +92,11 @@ export const buyAssetShares = createAsyncThunk(
   async ({ id, shares }: { id: number; shares: number }, { rejectWithValue }) => {
     try {
       const response = await api.post(`/assets/${id}/buy`, { shares });
-      return response.data;
+      return {
+        ...response.data,
+        assetId: id,
+        sharesPurchased: shares
+      };
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to buy asset shares');
     }
@@ -103,6 +107,7 @@ const initialState: AssetState = {
   assets: [],
   loading: false,
   error: null,
+  buyLoading: false,
   pagination: {
     current_page: 1,
     last_page: 1,

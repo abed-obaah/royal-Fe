@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
-import { ChevronDownIcon, FunnelIcon } from '@heroicons/react/20/solid'; // Keep existing icons
-import { FaInfoCircle, FaEye, FaEyeSlash } from 'react-icons/fa'; // Replace Info, Eye, EyeOff with Font Awesome icons
-import WalletUi from './WalletUI'
-import { buyAsset, fetchPortfolio } from "../slices/portfolioSlice";
-import { fetchAssets } from "../slices/assetSlice";
+import { ChevronDownIcon, FunnelIcon } from '@heroicons/react/20/solid';
+import { FaInfoCircle, FaPlus, FaMinus } from 'react-icons/fa';
+import WalletUi from './WalletUI';
+import { fetchPortfolio } from "../slices/portfolioSlice";
+import { fetchAssets, buyAssetShares } from "../slices/assetSlice";
 import { RootState, AppDispatch } from "../store";
 import AssetPreviewModal from "./AssetPreviewModal";
 
+// Filters configuration
 const filters = {
   genre: [
     { value: 'Hip-Hop', label: 'Hip-Hop', checked: false },
@@ -45,51 +46,82 @@ const sortOptions = [
   { name: 'Available Shares: High to Low', value: 'shares-desc', current: false },
 ];
 
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ')
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(' ');
 }
 
 export default function AlbumGrid() {
   const dispatch = useDispatch<AppDispatch>();
   const { portfolio, loading: portfolioLoading } = useSelector((state: RootState) => state.portfolio);
-  const { assets, loading: assetsLoading } = useSelector((state: RootState) => state.assets);
+  const { assets, loading: assetsLoading, buyLoading } = useSelector((state: RootState) => state.assets);
   
-  const [clickedIndex, setClickedIndex] = useState(null);
-  const [activeFilters, setActiveFilters] = useState({});
+  const [clickedIndex, setClickedIndex] = useState<number | null>(null);
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [sortBy, setSortBy] = useState('roi-desc');
-  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [selectedAsset, setSelectedAsset] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
 
   useEffect(() => {
     dispatch(fetchPortfolio());
     dispatch(fetchAssets({ per_page: 100, status: 'active' }));
   }, [dispatch]);
 
-  const handleBuyClick = async (asset, index) => {
+  // Handle quantity changes
+  const handleQuantityChange = (assetId: number, change: number) => {
+    setQuantities(prev => {
+      const currentQty = prev[assetId] || 1;
+      const asset = assets.find(a => a.id === assetId);
+      const maxShares = asset?.available_shares || 1;
+      
+      let newQty = currentQty + change;
+      newQty = Math.max(1, Math.min(newQty, maxShares));
+      
+      return {
+        ...prev,
+        [assetId]: newQty
+      };
+    });
+  };
+
+  // Handle buy click with quantity
+  const handleBuyClick = async (asset: any, index: number) => {
     try {
       setClickedIndex(index);
       
-      await dispatch(buyAsset({
-        asset_id: asset.id,
-        asset_type: asset.type,
-        quantity: 1
+      const quantity = quantities[asset.id] || 1;
+      
+      // Use the asset slice's buyAssetShares
+      await dispatch(buyAssetShares({
+        id: asset.id,
+        shares: quantity
       })).unwrap();
       
+      // Refresh portfolio to get updated balances
+      dispatch(fetchPortfolio());
+      
+      // Refresh assets to get updated available shares
       dispatch(fetchAssets({ per_page: 100, status: 'active' }));
       
-      setTimeout(() => setClickedIndex(null), 300);
+      // Reset quantity for this asset
+      setQuantities(prev => ({
+        ...prev,
+        [asset.id]: 1
+      }));
+      
+      setTimeout(() => setClickedIndex(null), 2000);
     } catch (error) {
       console.error('Purchase failed:', error);
       setClickedIndex(null);
     }
   };
 
-  const handlePreviewClick = (asset) => {
+  const handlePreviewClick = (asset: any) => {
     setSelectedAsset(asset);
     setShowPreview(true);
   };
 
-  const getRiskColor = (risk) => {
+  const getRiskColor = (risk: string) => {
     switch(risk) {
       case "High": return "text-red-500";
       case "Medium": return "text-yellow-500";
@@ -98,11 +130,11 @@ export default function AlbumGrid() {
     }
   };
 
-  const getROIColor = (roi) => {
+  const getROIColor = (roi: number) => {
     return roi > 0 ? "text-green-400" : "text-red-400";
   };
 
-  const handleFilterChange = (filterType, value) => {
+  const handleFilterChange = (filterType: string, value: string) => {
     setActiveFilters(prev => {
       const newFilters = { ...prev };
       if (!newFilters[filterType]) {
@@ -129,6 +161,7 @@ export default function AlbumGrid() {
   const getFilteredAssets = () => {
     let filtered = [...assets];
     
+    // Apply filters
     if (Object.keys(activeFilters).length > 0) {
       filtered = filtered.filter(asset => {
         return Object.entries(activeFilters).every(([key, values]) => {
@@ -147,6 +180,7 @@ export default function AlbumGrid() {
       });
     }
     
+    // Apply sorting
     switch(sortBy) {
       case 'price-asc':
         filtered.sort((a, b) => a.price - b.price);
@@ -178,7 +212,7 @@ export default function AlbumGrid() {
 
   if (assetsLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-gray-900">
         <WalletUi />
         <div className="flex justify-center items-center py-12">
           <div className="text-white">Loading assets...</div>
@@ -188,10 +222,11 @@ export default function AlbumGrid() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-900">
       <WalletUi/>
 
-      <Disclosure as="section" className="border-b border-gray-700">
+      {/* Filters Section */}
+      <Disclosure as="section" className="border-b border-gray-700 bg-gray-800">
         <h2 className="sr-only">Filters</h2>
         <div className="relative py-4">
           <div className="mx-auto flex max-w-7xl justify-between items-center px-4 sm:px-6 lg:px-8">
@@ -285,6 +320,7 @@ export default function AlbumGrid() {
         </DisclosurePanel>
       </Disclosure>
 
+      {/* Asset Grid */}
       <div className="p-4">
         {filteredAssets.length === 0 ? (
           <div className="text-center py-12">
@@ -297,119 +333,157 @@ export default function AlbumGrid() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredAssets.map((asset, index) => (
-              <div
-                key={asset.id}
-                className="bg-[#222629] rounded-lg p-3 hover:bg-gray-750 transition-all duration-300 hover:shadow-md group border border-gray-700"
-              >
-                <div className="flex mb-3">
-                  <div className="relative overflow-hidden rounded-md flex-shrink-0">
-                    <img
-                      src={asset.image_url || "https://via.placeholder.com/150"}
-                      alt={asset.title}
-                      className="rounded-md w-16 h-16 object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute bottom-1 right-1 bg-gray-900/90 text-white font-medium py-0.5 px-1.5 rounded text-xs">
-                      ${asset.price}
+            {filteredAssets.map((asset, index) => {
+              const quantity = quantities[asset.id] || 1;
+              const totalCost = (asset.price * quantity).toFixed(2);
+              const canBuy = asset.available_shares > 0;
+              
+              return (
+                <div
+                  key={asset.id}
+                  className="bg-[#222629] rounded-lg p-3 hover:bg-gray-750 transition-all duration-300 hover:shadow-md group border border-gray-700"
+                >
+                  <div className="flex mb-3">
+                    <div className="relative overflow-hidden rounded-md flex-shrink-0">
+                      <img
+                        src={asset.image_url || "https://via.placeholder.com/150"}
+                        alt={asset.title}
+                        className="rounded-md w-16 h-16 object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute bottom-1 right-1 bg-gray-900/90 text-white font-medium py-0.5 px-1.5 rounded text-xs">
+                        ${asset.price}
+                      </div>
+                    </div>
+                    
+                    <div className="ml-3 flex-grow">
+                      <h3 className="text-white font-medium text-sm truncate">{asset.title}</h3>
+                      <p className="text-gray-400 text-xs">{asset.artist || 'Various Artists'}</p>
+                      
+                      <div className="flex items-center mt-1">
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getRiskColor(asset.risk_rating)} bg-gray-700/50`}>
+                          {asset.risk_rating || 'Medium'}
+                        </span>
+                        <span className="ml-1 text-xs text-gray-400 bg-gray-700/30 px-1.5 py-0.5 rounded-full capitalize">
+                          {asset.type}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Preview Button */}
+                    <button
+                      onClick={() => handlePreviewClick(asset)}
+                      className="ml-2 p-1 text-gray-400 hover:text-white transition-colors"
+                      title="Preview Asset"
+                    >
+                      <FaInfoCircle size={16} />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-gray-700/30 p-2 rounded-md">
+                      <p className="text-gray-400 text-xs mb-0.5">ROI Range</p>
+                      <p className="text-white font-medium text-sm">
+                        {asset.expected_roi_range || '10-20%'}
+                      </p>
+                    </div>
+                    
+                    <div className="bg-gray-700/30 p-2 rounded-md">
+                      <p className="text-gray-400 text-xs mb-0.5">Entry Price</p>
+                      <p className="text-white font-medium text-sm">${asset.price}</p>
+                    </div>
+                    
+                    <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
+                      <p className="text-gray-400 text-xs mb-0.5">Current ROI</p>
+                      <p className={`font-medium text-sm ${getROIColor(asset.current_roi_percent)}`}>
+                        {asset.current_roi_percent > 0 ? '+' : ''}{asset.current_roi_percent || 0}%
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
+                      <p className="text-gray-400 text-xs mb-0.5">Available Shares</p>
+                      <p className="text-white font-medium text-sm">
+                        {asset.available_shares} / {asset.total_shares}
+                      </p>
                     </div>
                   </div>
                   
-                  <div className="ml-3 flex-grow">
-                    <h3 className="text-white font-medium text-sm truncate">{asset.title}</h3>
-                    <p className="text-gray-400 text-xs">{asset.artist || 'Various Artists'}</p>
-                    
-                    <div className="flex items-center mt-1">
-                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getRiskColor(asset.risk_rating)} bg-gray-700/50`}>
-                        {asset.risk_rating || 'Medium'}
-                      </span>
-                      <span className="ml-1 text-xs text-gray-400 bg-gray-700/30 px-1.5 py-0.5 rounded-full capitalize">
-                        {asset.type}
-                      </span>
+                  {/* Quantity Selector */}
+                  {canBuy && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-400 text-xs">Quantity:</span>
+                        <span className="text-white text-xs font-medium">
+                          Total: ${totalCost}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between bg-gray-700/30 rounded-lg p-2">
+                        <button
+                          onClick={() => handleQuantityChange(asset.id, -1)}
+                          disabled={quantity <= 1}
+                          className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <FaMinus size={12} />
+                        </button>
+                        <span className="text-white font-medium mx-2">{quantity}</span>
+                        <button
+                          onClick={() => handleQuantityChange(asset.id, 1)}
+                          disabled={quantity >= asset.available_shares}
+                          className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <FaPlus size={12} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Preview Button */}
+                  )}
+                  
                   <button
-                    onClick={() => handlePreviewClick(asset)}
-                    className="ml-2 p-1 text-gray-400 hover:text-white transition-colors"
-                    title="Preview Asset"
+                    onClick={() => handleBuyClick(asset, index)}
+                    disabled={portfolioLoading || buyLoading || !canBuy}
+                    className={`w-full relative overflow-hidden font-medium py-2 rounded-lg transition-all duration-300 text-xs ${
+                      clickedIndex === index 
+                        ? 'bg-green-500 text-white scale-95' 
+                        : !canBuy
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
-                    <FaInfoCircle size={16} /> {/* Replace Info with FaInfoCircle */}
+                    <span className={`flex items-center justify-center transition-all duration-200 ${clickedIndex === index ? 'scale-110' : ''}`}>
+                      {!canBuy ? (
+                        "Sold Out"
+                      ) : clickedIndex === index ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Purchased!
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Invest ${totalCost}
+                        </>
+                      )}
+                    </span>
                   </button>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="bg-gray-700/30 p-2 rounded-md">
-                    <p className="text-gray-400 text-xs mb-0.5">ROI Range</p>
-                    <p className="text-white font-medium text-sm">
-                      {asset.expected_roi_range || '10-20%'}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gray-700/30 p-2 rounded-md">
-                    <p className="text-gray-400 text-xs mb-0.5">Entry Price</p>
-                    <p className="text-white font-medium text-sm">${asset.price}</p>
-                  </div>
-                  
-                  <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
-                    <p className="text-gray-400 text-xs mb-0.5">Current ROI</p>
-                    <p className={`font-medium text-sm ${getROIColor(asset.current_roi_percent)}`}>
-                      {asset.current_roi_percent > 0 ? '+' : ''}{asset.current_roi_percent || 0}%
-                    </p>
-                  </div>
-
-                  <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
-                    <p className="text-gray-400 text-xs mb-0.5">Available Shares</p>
-                    <p className="text-white font-medium text-sm">
-                      {asset.available_shares} / {asset.total_shares}
-                    </p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => handleBuyClick(asset, index)}
-                  disabled={portfolioLoading || asset.available_shares === 0}
-                  className={`w-full relative overflow-hidden font-medium py-2 rounded-lg transition-all duration-300 text-xs ${
-                    clickedIndex === index 
-                      ? 'bg-gray-300 scale-95' 
-                      : asset.available_shares === 0
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  <span className={`flex items-center justify-center text-gray-800 transition-all duration-200 ${clickedIndex === index ? 'scale-110' : ''}`}>
-                    {asset.available_shares === 0 ? (
-                      "Sold Out"
-                    ) : clickedIndex === index ? (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Purchased!
-                      </>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Invest ${asset.price}
-                      </>
-                    )}
-                  </span>
-                  
-                  <span className="absolute top-0 left-0 w-full h-full bg-white/30 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></span>
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
+      {/* Asset Preview Modal */}
       <AssetPreviewModal
         asset={selectedAsset}
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
-        onInvest={(asset) => handleBuyClick(asset, -1)}
+        onInvest={(asset, quantity) => {
+          const index = assets.findIndex(a => a.id === asset.id);
+          handleBuyClick(asset, index);
+          setShowPreview(false);
+        }}
       />
     </div>
   );

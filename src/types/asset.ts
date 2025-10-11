@@ -24,6 +24,7 @@ export interface Asset {
   basket?: Basket;
 }
 
+
 export interface AssetState {
   assets: Asset[];
   loading: boolean;
@@ -34,8 +35,8 @@ export interface AssetState {
     per_page: number;
     total: number;
   };
+  buyLoading: boolean;
 }
-
 export interface CreateAssetData {
   title: string;
   slug?: string;

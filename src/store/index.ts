@@ -8,6 +8,7 @@ import basketReducer from "../slices/basketSlice";
 import assetReducer from "../slices/assetSlice";
 import transactionReducer from "../slices/transactionSlice";
 import portfolioReducer from "../slices/portfolioSlice";
+import networkWalletReducer from "../slices/networkWalletSlice";
 
 const persistConfig = {
   key: "root",
@@ -24,6 +25,7 @@ export const store = configureStore({
     assets: assetReducer,
     transactions: transactionReducer,
     portfolio: portfolioReducer,
+    networkWallets: networkWalletReducer,
   },
 });
 

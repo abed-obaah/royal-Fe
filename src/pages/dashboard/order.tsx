@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { RootState, AppDispatch } from "../../store";
 import { 
   fetchPortfolio, 
   fetchSellOrders, 
   sellAsset,
   fetchOrderHistory,
-  fetchOrdersPaginated
+  clearError
 } from "../../slices/orderSlice";
 
 interface PortfolioItem {
@@ -26,7 +27,8 @@ interface PortfolioItem {
 
 const XchangePage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { portfolio, sellOrders, orderHistory, orderPagination, loading, error } = useSelector(
+  const navigate = useNavigate();
+  const { portfolio, sellOrders, orderHistory, loading, error } = useSelector(
     (state: RootState) => state.order
   );
 
@@ -37,7 +39,7 @@ const XchangePage: React.FC = () => {
     item: null,
   });
   const [sellQuantity, setSellQuantity] = useState(1);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ const XchangePage: React.FC = () => {
 
   const handleSellSubmit = async () => {
     if (sellModal.item && sellQuantity > 0 && sellQuantity <= sellModal.item.quantity) {
-      setActionLoading(true);
+      setActionLoading(`sell-${sellModal.item.id}`);
       try {
         await dispatch(sellAsset({
           portfolio_item_id: sellModal.item.id,
@@ -62,26 +64,29 @@ const XchangePage: React.FC = () => {
         
         setSellModal({ isOpen: false, item: null });
         
-        // Refresh all data
-        await Promise.all([
+        // Show success message first
+        setShowSuccessMessage(true);
+        
+        // Refresh data in background without blocking UI
+        Promise.all([
           dispatch(fetchPortfolio()),
           dispatch(fetchSellOrders()),
           dispatch(fetchOrderHistory())
-        ]);
+        ]).catch(error => {
+          console.error('Error refreshing data:', error);
+        });
         
-        // Show success message and switch to order history tab
-        setShowSuccessMessage(true);
-        setActiveTab("history");
-        
-        // Auto-hide success message after 5 seconds
+        // Auto-hide success message and redirect after 3 seconds
         setTimeout(() => {
           setShowSuccessMessage(false);
-        }, 5000);
+          navigate('/dashboard');
+        }, 3000);
         
       } catch (error) {
         console.error('Sell failed:', error);
+        setShowSuccessMessage(false);
       } finally {
-        setActionLoading(false);
+        setActionLoading(null);
       }
     }
   };
@@ -89,7 +94,6 @@ const XchangePage: React.FC = () => {
   // Helper function to get image source from base64 or URL
   const getImageSrc = (asset: any) => {
     if (asset?.image_base64) {
-      // Handle base64 image data
       if (asset.image_base64.startsWith('data:')) {
         return asset.image_base64;
       }
@@ -102,61 +106,61 @@ const XchangePage: React.FC = () => {
   };
 
   // Convert portfolio items to display format - ONLY items with quantity > 0
-  const portfolioItems = portfolio?.items
-    .filter(item => item.quantity > 0) // Only show items with remaining shares
+  const portfolioItems = (portfolio?.items || [])
+    .filter(item => item.quantity > 0)
     .map(item => ({
       id: item.id,
       name: item.asset?.title || `Asset ${item.asset_id}`,
       company: item.asset?.artist || "Investment Co.",
-      price: `$${parseFloat(item.current_price).toFixed(2)}`,
+      price: `$${parseFloat(item.current_price || '0').toFixed(2)}`,
       change: item.asset?.current_roi_percent ? 
-        `${item.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(item.asset.current_roi_percent).toFixed(1)}%` : "+0%",
+        `${parseFloat(item.asset.current_roi_percent) > 0 ? '+' : ''}${parseFloat(item.asset.current_roi_percent).toFixed(1)}%` : "+0%",
       logo: getImageSrc(item.asset),
-      type: item.asset_type,
+      type: item.asset_type || 'single',
       date: new Date().toISOString().split('T')[0],
       status: "Owned",
       quantity: item.quantity,
-      current_value: item.current_value,
+      current_value: item.current_value || "0",
       asset: item.asset,
-      current_price: item.current_price
-    })) || [];
+      current_price: item.current_price || "0"
+    }));
 
   // Convert sell orders to display format
-  const orderItems = sellOrders.map(order => ({
+  const orderItems = (sellOrders || []).map(order => ({
     id: order.id,
     name: order.asset?.title || `Asset ${order.asset_id}`,
     company: order.asset?.artist || "Investment Co.",
-    price: `$${parseFloat(order.price).toFixed(2)}`,
+    price: `$${parseFloat(order.price || '0').toFixed(2)}`,
     change: order.asset?.current_roi_percent ? 
-      `${order.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(order.asset.current_roi_percent).toFixed(1)}%` : "+0%",
+      `${parseFloat(order.asset.current_roi_percent) > 0 ? '+' : ''}${parseFloat(order.asset.current_roi_percent).toFixed(1)}%` : "+0%",
     logo: getImageSrc(order.asset),
-    type: order.asset_type || order.order_type,
+    type: order.asset_type || order.order_type || 'single',
     date: new Date(order.created_at).toISOString().split('T')[0],
-    status: order.status,
-    quantity: order.quantity,
-    total: order.total,
+    status: order.status || 'pending',
+    quantity: order.quantity || 0,
+    total: order.total || "0",
     asset: order.asset,
-    isOrder: true // Mark as order item
+    isOrder: true
   }));
 
   // Convert order history to display format
-  const historyItems = orderHistory.map(order => ({
+  const historyItems = (orderHistory || []).map(order => ({
     id: order.id,
     name: order.asset?.title || `Asset ${order.asset_id}`,
     company: order.asset?.artist || "Investment Co.",
-    price: `$${parseFloat(order.price).toFixed(2)}`,
+    price: `$${parseFloat(order.price || '0').toFixed(2)}`,
     change: order.asset?.current_roi_percent ? 
-      `${order.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(order.asset.current_roi_percent).toFixed(1)}%` : "+0%",
+      `${parseFloat(order.asset.current_roi_percent) > 0 ? '+' : ''}${parseFloat(order.asset.current_roi_percent).toFixed(1)}%` : "+0%",
     logo: getImageSrc(order.asset),
-    type: order.asset_type || order.order_type,
+    type: order.asset_type || order.order_type || 'single',
     date: new Date(order.created_at).toISOString().split('T')[0],
-    status: order.status,
-    quantity: order.quantity,
-    total: order.total,
+    status: order.status || 'completed',
+    quantity: order.quantity || 0,
+    total: order.total || "0",
     asset: order.asset,
-    order_type: order.order_type,
-    reference: order.reference,
-    isOrder: true // Mark as order item
+    order_type: order.order_type || 'sell',
+    reference: order.reference || `REF-${order.id}`,
+    isOrder: true
   }));
 
   // For portfolio tab: show owned items + sell orders
@@ -252,10 +256,13 @@ const XchangePage: React.FC = () => {
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span>Sell order submitted successfully! Your order is now pending admin approval.</span>
+              <span>Sell order submitted successfully! Redirecting to dashboard...</span>
             </div>
             <button
-              onClick={() => setShowSuccessMessage(false)}
+              onClick={() => {
+                setShowSuccessMessage(false);
+                navigate('/dashboard');
+              }}
               className="text-green-400 hover:text-green-300"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -266,8 +273,16 @@ const XchangePage: React.FC = () => {
         )}
 
         {error && (
-          <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6 backdrop-blur-sm">
-            {error}
+          <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6 backdrop-blur-sm flex justify-between items-center">
+            <span>{error}</span>
+            <button
+              onClick={() => dispatch(clearError())}
+              className="text-red-400 hover:text-red-300"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -342,7 +357,7 @@ const XchangePage: React.FC = () => {
 
             {/* Table Body */}
             <div className="space-y-2">
-              {loading ? (
+              {loading && filteredItems.length === 0 ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 </div>
@@ -454,10 +469,17 @@ const XchangePage: React.FC = () => {
                       {activeTab === "portfolio" && item.status === "Owned" && item.quantity > 0 && (
                         <button
                           onClick={() => handleSellClick(item)}
-                          disabled={actionLoading}
+                          disabled={actionLoading !== null}
                           className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-semibold border border-red-500/30 hover:border-red-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {actionLoading ? "Processing..." : "Sell Shares"}
+                          {actionLoading === `sell-${item.id}` ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+                              Processing...
+                            </div>
+                          ) : (
+                            "Sell Shares"
+                          )}
                         </button>
                       )}
                     </div>
@@ -550,17 +572,17 @@ const XchangePage: React.FC = () => {
             <div className="p-6 border-t border-gray-700/50 flex gap-3 justify-end">
               <button
                 onClick={() => setSellModal({ isOpen: false, item: null })}
-                disabled={actionLoading}
+                disabled={actionLoading !== null}
                 className="px-6 py-3 text-gray-400 hover:text-white font-semibold rounded-xl transition-colors duration-200 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSellSubmit}
-                disabled={sellQuantity < 1 || sellQuantity > sellModal.item.quantity || actionLoading}
+                disabled={sellQuantity < 1 || sellQuantity > sellModal.item.quantity || actionLoading !== null}
                 className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 transition-all duration-200"
               >
-                {actionLoading ? (
+                {actionLoading !== null ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     Processing...

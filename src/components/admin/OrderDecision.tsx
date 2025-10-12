@@ -38,6 +38,11 @@ interface Order {
     expected_roi_percent: string;
     current_roi_percent: string;
   };
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 const OrderDecision: React.FC<OrderDecisionProps> = () => {
@@ -46,7 +51,6 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
     (state: RootState) => state.order
   );
 
-  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,7 +58,6 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
 
   useEffect(() => {
     dispatch(fetchPendingSellOrders());
-    dispatch(fetchOrderHistory());
   }, [dispatch]);
 
   const handleApproveReject = async (orderId: number, action: 'approve' | 'reject') => {
@@ -64,11 +67,8 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
       
       setShowSuccessMessage(`Order ${action === 'approve' ? 'approved' : 'rejected'} successfully!`);
       
-      // Refresh data
-      await Promise.all([
-        dispatch(fetchPendingSellOrders()),
-        dispatch(fetchOrderHistory())
-      ]);
+      // Refresh pending orders data
+      await dispatch(fetchPendingSellOrders());
       
       // Auto-hide success message
       setTimeout(() => {
@@ -99,27 +99,16 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
 
   // Safe access to order arrays
   const pendingOrders: Order[] = Array.isArray(pendingSellOrders) ? pendingSellOrders : [];
-  const historyOrders: Order[] = Array.isArray(orderHistory) ? orderHistory : [];
 
   // Filter orders based on search and status
   const filteredPendingOrders = pendingOrders.filter(order => 
     order.asset?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.user_id?.toString().includes(searchTerm)
+    order.user_id?.toString().includes(searchTerm) ||
+    order.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredHistoryOrders = historyOrders.filter(order => {
-    const matchesSearch = 
-      order.asset?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user_id?.toString().includes(searchTerm);
-    
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  const displayOrders = activeTab === "pending" ? filteredPendingOrders : filteredHistoryOrders;
+  const displayOrders = filteredPendingOrders;
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -166,8 +155,6 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
   };
 
   const totalPendingOrders = pendingOrders.length;
-  const totalHistoryOrders = historyOrders.length;
-  const completedOrdersCount = historyOrders.filter(order => order.status === 'completed').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-6 md:p-8">
@@ -176,7 +163,7 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
           <div className="mb-4 lg:mb-0">
             <h1 className="text-3xl font-bold text-white mb-2">Order Management</h1>
-            <p className="text-gray-400">Approve or reject sell orders and monitor transaction history</p>
+            <p className="text-gray-400">Approve or reject sell orders</p>
           </div>
           
           {/* Admin Stats */}
@@ -184,16 +171,6 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
             <div className="bg-gradient-to-r from-yellow-500/20 to-amber-600/20 border border-yellow-500/30 rounded-xl px-4 py-3">
               <div className="text-yellow-400 text-sm font-medium">Pending Orders</div>
               <div className="text-white font-bold text-lg">{totalPendingOrders}</div>
-            </div>
-            <div className="bg-gradient-to-r from-blue-500/20 to-purple-600/20 border border-blue-500/30 rounded-xl px-4 py-3">
-              <div className="text-blue-400 text-sm font-medium">Total Orders</div>
-              <div className="text-white font-bold text-lg">{totalHistoryOrders}</div>
-            </div>
-            <div className="bg-gradient-to-r from-green-500/20 to-emerald-600/20 border border-green-500/30 rounded-xl px-4 py-3">
-              <div className="text-green-400 text-sm font-medium">Completed</div>
-              <div className="text-white font-bold text-lg">
-                {completedOrdersCount}
-              </div>
             </div>
           </div>
         </div>
@@ -244,31 +221,7 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-gray-700/50 mb-6">
-          <button
-            onClick={() => setActiveTab("pending")}
-            className={`px-6 py-3 font-semibold text-sm border-b-2 transition-all duration-200 ${
-              activeTab === "pending"
-                ? "border-yellow-500 text-yellow-400"
-                : "border-transparent text-gray-400 hover:text-gray-300"
-            }`}
-          >
-            Pending Orders ({totalPendingOrders})
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`px-6 py-3 font-semibold text-sm border-b-2 transition-all duration-200 ${
-              activeTab === "history"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-gray-400 hover:text-gray-300"
-            }`}
-          >
-            Order History ({totalHistoryOrders})
-          </button>
-        </div>
-
-        {/* Search and Filter Section */}
+        {/* Search Section */}
         <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden mb-6">
           <div className="p-6 border-b border-gray-700/50">
             <div className="flex flex-col lg:flex-row gap-4 items-center">
@@ -279,31 +232,12 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                 <input
                   type="text"
                   id="search"
-                  placeholder="Search by asset name, order reference, or user ID..."
+                  placeholder="Search by asset name, user name, order reference, or user ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
-              {activeTab === "history" && (
-                <div className="w-full lg:w-64">
-                  <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-400 mb-2">
-                    Filter by Status
-                  </label>
-                  <select
-                    id="statusFilter"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -328,11 +262,10 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
             ) : displayOrders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-500 text-lg mb-2">
-                  {activeTab === "pending" ? "No pending orders found" : "No orders found"}
+                  No pending orders found
                 </div>
                 <div className="text-gray-400 text-sm">
-                  {searchTerm ? "Try adjusting your search criteria" : 
-                   activeTab === "pending" ? "All sell orders have been processed" : "No orders match the current filters"}
+                  {searchTerm ? "Try adjusting your search criteria" : "All sell orders have been processed"}
                 </div>
               </div>
             ) : (
@@ -364,8 +297,11 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                         <p className="text-gray-400 text-sm truncate">
                           {order.asset?.artist || "Unknown Artist"}
                         </p>
+                        <p className="text-gray-400 text-sm truncate">
+                          User: {order.user?.name || `User ${order.user_id}`}
+                        </p>
                         <p className="text-gray-500 text-xs mt-1">
-                          User ID: {order.user_id} • Ref: {order.reference}
+                          Ref: {order.reference}
                         </p>
                       </div>
                     </div>
@@ -402,38 +338,36 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                       {order.status.toUpperCase()}
                     </span>
                     
-                    {activeTab === "pending" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproveReject(order.id, 'approve')}
-                          disabled={actionLoading === order.id}
-                          className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
-                        >
-                          {actionLoading === order.id ? (
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                              Processing...
-                            </div>
-                          ) : (
-                            "Approve"
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleApproveReject(order.id, 'reject')}
-                          disabled={actionLoading === order.id}
-                          className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
-                        >
-                          {actionLoading === order.id ? (
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                              Processing...
-                            </div>
-                          ) : (
-                            "Reject"
-                          )}
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApproveReject(order.id, 'approve')}
+                        disabled={actionLoading === order.id}
+                        className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
+                      >
+                        {actionLoading === order.id ? (
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                            Processing...
+                          </div>
+                        ) : (
+                          "Approve"
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleApproveReject(order.id, 'reject')}
+                        disabled={actionLoading === order.id}
+                        className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
+                      >
+                        {actionLoading === order.id ? (
+                          <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                            Processing...
+                          </div>
+                        ) : (
+                          "Reject"
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))

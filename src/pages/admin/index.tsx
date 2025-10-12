@@ -41,6 +41,7 @@ import KycDashboard from "@/components/admin/KycDashboard";
 import Settings from "@/pages/dashboard/ProfilePage";
 import Songs from "@/components/admin/songs";
 import WalletAddress from "@/components/admin/WalletAddress";
+import OrderDecision from "@/components/admin/OrderDecision";
 
 
 
@@ -88,6 +89,7 @@ const navigation = [
   { name: 'Assets', href: '#', icon: ChartPieIcon, component: Orders },
   { name: 'Baskets', href: '#', icon: ChartPieIcon, component: Orders2 },
   { name: 'kYC', href: '#', icon: ChartPieIcon, component: KycDashboard },
+  { name: 'Order History', href: '#', icon: ChartPieIcon, component: OrderDecision},
   { name: 'Referrals', href: '#', icon: DocumentDuplicateIcon, component: Wallet },
   { name: 'Manage Users', href: '#', icon: ChartPieIcon, component: Manage },
   { name: 'Settings', href: '#', icon: Cog6ToothIcon, component: Settings },

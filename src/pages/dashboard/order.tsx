@@ -38,6 +38,7 @@ const XchangePage: React.FC = () => {
   });
   const [sellQuantity, setSellQuantity] = useState(1);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   useEffect(() => {
     dispatch(fetchPortfolio());
@@ -60,12 +61,23 @@ const XchangePage: React.FC = () => {
         })).unwrap();
         
         setSellModal({ isOpen: false, item: null });
+        
         // Refresh all data
         await Promise.all([
           dispatch(fetchPortfolio()),
           dispatch(fetchSellOrders()),
           dispatch(fetchOrderHistory())
         ]);
+        
+        // Show success message and switch to order history tab
+        setShowSuccessMessage(true);
+        setActiveTab("history");
+        
+        // Auto-hide success message after 5 seconds
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+        }, 5000);
+        
       } catch (error) {
         console.error('Sell failed:', error);
       } finally {
@@ -89,43 +101,43 @@ const XchangePage: React.FC = () => {
     return "https://via.placeholder.com/40";
   };
 
-// Convert portfolio items to display format - ONLY items with quantity > 0
-const portfolioItems = portfolio?.items
-  .filter(item => item.quantity > 0) // Only show items with remaining shares
-  .map(item => ({
-    id: item.id,
-    name: item.asset?.title || `Asset ${item.asset_id}`,
-    company: item.asset?.artist || "Investment Co.",
-    price: `$${parseFloat(item.current_price).toFixed(2)}`,
-    change: item.asset?.current_roi_percent ? 
-      `${item.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(item.asset.current_roi_percent).toFixed(1)}%` : "+0%",
-    logo: getImageSrc(item.asset),
-    type: item.asset_type,
-    date: new Date().toISOString().split('T')[0],
-    status: "Owned",
-    quantity: item.quantity,
-    current_value: item.current_value,
-    asset: item.asset,
-    current_price: item.current_price
-  })) || [];
+  // Convert portfolio items to display format - ONLY items with quantity > 0
+  const portfolioItems = portfolio?.items
+    .filter(item => item.quantity > 0) // Only show items with remaining shares
+    .map(item => ({
+      id: item.id,
+      name: item.asset?.title || `Asset ${item.asset_id}`,
+      company: item.asset?.artist || "Investment Co.",
+      price: `$${parseFloat(item.current_price).toFixed(2)}`,
+      change: item.asset?.current_roi_percent ? 
+        `${item.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(item.asset.current_roi_percent).toFixed(1)}%` : "+0%",
+      logo: getImageSrc(item.asset),
+      type: item.asset_type,
+      date: new Date().toISOString().split('T')[0],
+      status: "Owned",
+      quantity: item.quantity,
+      current_value: item.current_value,
+      asset: item.asset,
+      current_price: item.current_price
+    })) || [];
 
-// Convert sell orders to display format
-const orderItems = sellOrders.map(order => ({
-  id: order.id,
-  name: order.asset?.title || `Asset ${order.asset_id}`,
-  company: order.asset?.artist || "Investment Co.",
-  price: `$${parseFloat(order.price).toFixed(2)}`,
-  change: order.asset?.current_roi_percent ? 
-    `${order.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(order.asset.current_roi_percent).toFixed(1)}%` : "+0%",
-  logo: getImageSrc(order.asset),
-  type: order.asset_type || order.order_type,
-  date: new Date(order.created_at).toISOString().split('T')[0],
-  status: order.status,
-  quantity: order.quantity,
-  total: order.total,
-  asset: order.asset,
-  isOrder: true // Mark as order item
-}));
+  // Convert sell orders to display format
+  const orderItems = sellOrders.map(order => ({
+    id: order.id,
+    name: order.asset?.title || `Asset ${order.asset_id}`,
+    company: order.asset?.artist || "Investment Co.",
+    price: `$${parseFloat(order.price).toFixed(2)}`,
+    change: order.asset?.current_roi_percent ? 
+      `${order.asset.current_roi_percent > 0 ? '+' : ''}${parseFloat(order.asset.current_roi_percent).toFixed(1)}%` : "+0%",
+    logo: getImageSrc(order.asset),
+    type: order.asset_type || order.order_type,
+    date: new Date(order.created_at).toISOString().split('T')[0],
+    status: order.status,
+    quantity: order.quantity,
+    total: order.total,
+    asset: order.asset,
+    isOrder: true // Mark as order item
+  }));
 
   // Convert order history to display format
   const historyItems = orderHistory.map(order => ({
@@ -232,6 +244,26 @@ const orderItems = sellOrders.map(order => ({
             </div>
           </div>
         </div>
+
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="bg-green-500/20 border border-green-500/30 text-green-400 p-4 rounded-xl mb-6 backdrop-blur-sm flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Sell order submitted successfully! Your order is now pending admin approval.</span>
+            </div>
+            <button
+              onClick={() => setShowSuccessMessage(false)}
+              className="text-green-400 hover:text-green-300"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-500/20 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6 backdrop-blur-sm">

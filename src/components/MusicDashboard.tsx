@@ -50,6 +50,20 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+// Helper function to get image source from base64 or URL
+const getImageSrc = (asset: any) => {
+  if (asset.image_base64) {
+    // Handle base64 image data
+    return `data:image/jpeg;base64,${asset.image_base64}`;
+  }
+  if (asset.image_url) {
+    // Handle regular image URL
+    return asset.image_url;
+  }
+  // Fallback placeholder
+  return "https://via.placeholder.com/150";
+};
+
 export default function AlbumGrid() {
   const dispatch = useDispatch<AppDispatch>();
   const { portfolio, loading: portfolioLoading } = useSelector((state: RootState) => state.portfolio);
@@ -61,11 +75,20 @@ export default function AlbumGrid() {
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     dispatch(fetchPortfolio());
     dispatch(fetchAssets({ per_page: 100, status: 'active' }));
   }, [dispatch]);
+
+  // Handle image loading errors
+  const handleImageError = (assetId: number) => {
+    setImageErrors(prev => ({
+      ...prev,
+      [assetId]: true
+    }));
+  };
 
   // Handle quantity changes
   const handleQuantityChange = (assetId: number, change: number) => {
@@ -337,6 +360,8 @@ export default function AlbumGrid() {
               const quantity = quantities[asset.id] || 1;
               const totalCost = (asset.price * quantity).toFixed(2);
               const canBuy = asset.available_shares > 0;
+              const imageSrc = getImageSrc(asset);
+              const hasImageError = imageErrors[asset.id];
               
               return (
                 <div
@@ -346,9 +371,10 @@ export default function AlbumGrid() {
                   <div className="flex mb-3">
                     <div className="relative overflow-hidden rounded-md flex-shrink-0">
                       <img
-                        src={asset.image_url || "https://via.placeholder.com/150"}
+                        src={hasImageError ? "https://via.placeholder.com/150" : imageSrc}
                         alt={asset.title}
                         className="rounded-md w-16 h-16 object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={() => handleImageError(asset.id)}
                       />
                       <div className="absolute bottom-1 right-1 bg-gray-900/90 text-white font-medium py-0.5 px-1.5 rounded text-xs">
                         ${asset.price}

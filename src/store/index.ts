@@ -9,24 +9,40 @@ import assetReducer from "../slices/assetSlice";
 import transactionReducer from "../slices/transactionSlice";
 import portfolioReducer from "../slices/portfolioSlice";
 import networkWalletReducer from "../slices/networkWalletSlice";
+import orderReducer from "../slices/orderSlice"
 
 const persistConfig = {
   key: "root",
   storage,
 };
 
-const persistedReducer = persistReducer(persistConfig, userReducer);
+// Persist only the user slice
+const persistedUserReducer = persistReducer(persistConfig, userReducer);
 
 export const store = configureStore({
   reducer: {
-    user: persistedReducer,
+    user: persistedUserReducer,
     songs: songReducer,
     baskets: basketReducer,
     assets: assetReducer,
     transactions: transactionReducer,
     portfolio: portfolioReducer,
     networkWallets: networkWalletReducer,
+    order: orderReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [
+          "persist/PERSIST",
+          "persist/REHYDRATE",
+          "persist/PAUSE",
+          "persist/REGISTER",
+          "persist/PURGE",
+          "persist/FLUSH",
+        ],
+      },
+    }),
 });
 
 export const persistor = persistStore(store);

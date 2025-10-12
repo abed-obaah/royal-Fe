@@ -9,8 +9,20 @@ interface AssetPreviewModalProps {
   onInvest: (asset: any, quantity: number) => void;
 }
 
+// Helper function to get image source from base64 or URL
+const getImageSrc = (asset: any) => {
+  if (asset?.image_base64) {
+    return `data:image/jpeg;base64,${asset.image_base64}`;
+  }
+  if (asset?.image_url) {
+    return asset.image_url;
+  }
+  return "https://via.placeholder.com/300";
+};
+
 export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: AssetPreviewModalProps) {
   const [quantity, setQuantity] = useState(1);
+  const [imageError, setImageError] = useState(false);
 
   if (!isOpen || !asset) return null;
 
@@ -20,6 +32,7 @@ export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: 
   };
 
   const totalCost = (asset.price * quantity).toFixed(2);
+  const imageSrc = getImageSrc(asset);
 
   const getRiskColor = (risk: string) => {
     switch(risk) {
@@ -46,9 +59,10 @@ export default function AssetPreviewModal({ asset, isOpen, onClose, onInvest }: 
         <div className="flex flex-col md:flex-row gap-6">
           <div className="flex-shrink-0">
             <img
-              src={asset.image_url || "https://via.placeholder.com/300"}
+              src={imageError ? "https://via.placeholder.com/300" : imageSrc}
               alt={asset.title}
               className="rounded-lg w-48 h-48 object-cover"
+              onError={() => setImageError(true)}
             />
           </div>
           

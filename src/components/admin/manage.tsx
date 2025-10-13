@@ -178,7 +178,7 @@ export default function UserManagementExtended() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search user..."
-            className="flex-1 bg-gray-900 text-gray-200 px-3 py-2 rounded-md focus:outline-none"
+            className="flex-1  text-gray-200 px-3 py-2 rounded-md focus:outline-none"
           />
         </div>
 

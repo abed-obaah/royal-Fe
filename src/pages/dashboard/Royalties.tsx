@@ -3,7 +3,7 @@ import { Eye, EyeOff, ArrowDownCircle, ArrowUpCircle, RefreshCcw } from "lucide-
 
 export default function RewardPage() {
      const [showBalance, setShowBalance] = useState(false);
-     const balance = "$50,000";
+     const balance = "$0.00";
   return (
     <div className="min-h-screen  p-6 md:p-12 flex justify-center">
       <div className="bg-[#3b4148] rounded-3xl shadow-xl p-6 md:p-10 w-full max-w-7xl flex flex-col lg:flex-row gap-8">

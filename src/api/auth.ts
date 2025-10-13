@@ -103,3 +103,34 @@ export const resendVerification = async (emailData: ResendVerificationRequest): 
   const response = await api.post<ResendVerificationResponse>("resend-verification", emailData);
   return response.data;
 };``
+
+// -------------------- Verify OTP --------------------
+export interface VerifyOtpRequest {
+  email: string;
+  code: string;
+}
+
+export interface VerifyOtpResponse {
+  message: string;
+  // Your backend doesn't return user data or token in verify response
+  // Adjust according to your actual backend response
+}
+
+export const verifyOtp = async (verificationData: VerifyOtpRequest): Promise<VerifyOtpResponse> => {
+  const response = await api.post<VerifyOtpResponse>("verify-otp", verificationData);
+  return response.data;
+};
+
+// -------------------- Resend OTP --------------------
+export interface ResendOtpRequest {
+  email: string;
+}
+
+export interface ResendOtpResponse {
+  message: string;
+}
+
+export const resendOtp = async (emailData: ResendOtpRequest): Promise<ResendOtpResponse> => {
+  const response = await api.post<ResendOtpResponse>("resend-otp", emailData);
+  return response.data;
+};

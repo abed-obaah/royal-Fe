@@ -95,7 +95,7 @@ const doughnutOptions = {
 
 // Performance metrics card component
 const MetricCard = ({ title, value, change, icon, color, subtitle }) => (
-  <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700 hover:border-gray-600 transition-all duration-300 hover:transform hover:scale-[1.02]">
+  <div className="bg-[#222629] rounded-2xl p-6 border border-gray-700 hover:border-gray-600 transition-all duration-300 hover:transform hover:scale-[1.02]">
     <div className="flex items-center justify-between mb-4">
       <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
         {icon}
@@ -342,9 +342,9 @@ export default function PortfolioDashboard() {
   }, 0) / (Object.keys(allocation).length || 1);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950">
+    <div className="min-h-screen ">
       {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4 bg-gray-900 bg-opacity-50 backdrop-blur-sm">
+      <header className="border-b border-gray-800 px-6 py-4 bg-[#222629] bg-opacity-50 backdrop-blur-sm rounded-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-500 rounded-lg">
@@ -411,7 +411,7 @@ export default function PortfolioDashboard() {
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Allocation Chart */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
+          <div className="bg-[#222629] rounded-2xl p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-white">Portfolio Allocation</h3>
               <PieChart className="text-gray-400" size={20} />
@@ -422,7 +422,7 @@ export default function PortfolioDashboard() {
           </div>
 
           {/* ROI Analysis */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
+          <div className="bg-[#222629] to-gray-900 rounded-2xl p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-white">ROI Analysis by Type</h3>
               <BarChart3 className="text-gray-400" size={20} />
@@ -433,7 +433,7 @@ export default function PortfolioDashboard() {
           </div>
 
           {/* Performance Trend */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
+          <div className="bg-[#222629] rounded-2xl p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-white">Performance Trend</h3>
               <FaChartLine className="text-gray-400" size={20} />
@@ -456,7 +456,7 @@ export default function PortfolioDashboard() {
         </div>
 
         {/* Detailed Asset Analysis */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
+        <div className="bg-[#222629] rounded-2xl p-6 border border-gray-700">
           <h3 className="text-lg font-semibold text-white mb-6">Asset Performance Analysis</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {Object.entries(allocation).map(([type, data]: [string, any]) => {

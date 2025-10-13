@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -42,7 +42,11 @@ import Settings from "@/pages/dashboard/ProfilePage";
 import Songs from "@/components/admin/songs";
 import WalletAddress from "@/components/admin/WalletAddress";
 import OrderDecision from "@/components/admin/OrderDecision";
-
+import { useSelector } from "react-redux";
+import { RootState } from "../../store";
+import { clearCredentials } from "../../slices/userSlice";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
 
 
@@ -102,8 +106,8 @@ const teams = [
 ]
 
 const userNavigation = [
-  { name: 'Your profile', href: '#', component: Settings },
-  { name: 'Sign out', href: '#' },
+  { name: 'Your profile', href: '#', onClick: 'profile' },
+  { name: 'Sign out', href: '#', onClick: 'logout' },
 ]
 
 function classNames(...classes) {
@@ -111,8 +115,17 @@ function classNames(...classes) {
 }
 
 export default function Example() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('Home')
+  const [open, setOpen] = useState(false);
+  const [openNotif, setOpenNotif] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const user = useSelector((state: RootState) => state.user.user);
+  const token = useSelector((state: RootState) => state.user.token);
+  
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const handleNavClick = (name) => {
     setActiveNav(name);
@@ -120,9 +133,18 @@ export default function Example() {
 
   const ActiveComponent = navigation.find(item => item.name === activeNav)?.component || HomeContent;
 
-  const [open, setOpen] = useState(false);
-  const [openNotif, setOpenNotif] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const handleLogout = () => {
+    dispatch(clearCredentials());
+    navigate("/"); // Redirect to login page
+  };
+
+  const handleUserNavigationClick = (item: any) => {
+    if (item.onClick === 'logout') {
+      handleLogout();
+    } else if (item.onClick === 'profile') {
+      handleNavClick('Settings');
+    }
+  };
 
   return (
     <>
@@ -306,49 +328,33 @@ export default function Example() {
                     />
                     <span className="hidden lg:flex lg:items-center">
                       <span aria-hidden="true" className="ml-4 text-md/6 font-semibold text-white">
-                        Tom Cook
+                        {user?.name || 'User'}
                       </span>
                       <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
                     </span>
                   </MenuButton>
-                  <MenuItems
-                    transition
-                    className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-[#31373e] py-2 shadow-lg outline-1 outline-gray-900/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
-                  >
-                    {userNavigation.map((item) => (
-                      <MenuItem key={item.name}>
-                        <a
-                          href={item.href}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleNavClick(item.name);
-                            setSidebarOpen(false);
-                          }}
-                          className={classNames(
-                            item.name === activeNav
-                              ? 'bg-[#333940] text-white'
-                              : 'text-gray-700 hover:bg-[#333940] hover:text-white',
-                            'group flex gap-x-3 rounded-md p-2 text-md/6 font-semibold cursor-pointer'
-                          )}
-                        >
-                          {/* Show icon only if it exists in userNavigation */}
-                          {item.icon && (
-                            <item.icon
-                              aria-hidden="true"
-                              className={classNames(
-                                item.name === activeNav
-                                  ? 'text-white'
-                                  : 'text-gray-400 group-hover:text-white',
-                                'size-6 shrink-0'
-                              )}
-                            />
-                          )}
-                          {item.name}
-                        </a>
-                      </MenuItem>
-                    ))}
-
-                  </MenuItems>
+                     <MenuItems
+                                     transition
+                                     className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-[#31373e] py-2 shadow-lg outline-1 outline-gray-900/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+                                   >
+                                     {userNavigation.map((item) => (
+                                       <MenuItem key={item.name}>
+                                         <a
+                                           href={item.href}
+                                           onClick={(e) => {
+                                             e.preventDefault();
+                                             handleUserNavigationClick(item);
+                                           }}
+                                           className={classNames(
+                                             'text-gray-300 hover:bg-[#333940] hover:text-white',
+                                             'block px-3 py-2 text-md/6 font-semibold cursor-pointer'
+                                           )}
+                                         >
+                                           {item.name}
+                                         </a>
+                                       </MenuItem>
+                                     ))}
+                                   </MenuItems>
                 </Menu>
                 <ReferralDrawer open={open} onClose={() => setOpen(false)} />
                 <NotificationsDrawer open={openNotif} onClose={() => setOpenNotif(false)} />

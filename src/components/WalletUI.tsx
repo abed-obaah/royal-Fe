@@ -254,7 +254,7 @@ export default function WalletUI() {
       )}
 
       {/* Recent Transactions Preview */}
-      {userTransactions && userTransactions.length > 0 && (
+      {/* {userTransactions && userTransactions.length > 0 && (
         <div className="mt-6 bg-[#222629] p-6 rounded-2xl">
           <h3 className="text-white text-lg font-semibold mb-4">Recent Transactions</h3>
           <div className="space-y-3">
@@ -283,7 +283,7 @@ export default function WalletUI() {
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       <CryptoPaymentModal
         isOpen={isDepositModalOpen}

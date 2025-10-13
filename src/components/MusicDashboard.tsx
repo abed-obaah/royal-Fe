@@ -235,7 +235,7 @@ export default function AlbumGrid() {
 
   if (assetsLoading) {
     return (
-      <div className="min-h-screen bg-gray-900">
+      <div className="min-h-screen ">
         <WalletUi />
         <div className="flex justify-center items-center py-12">
           <div className="text-white">Loading assets...</div>
@@ -245,11 +245,11 @@ export default function AlbumGrid() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen ">
       <WalletUi/>
 
       {/* Filters Section */}
-      <Disclosure as="section" className="border-b border-gray-700 bg-gray-800">
+      <Disclosure as="section" className="border-b border-gray-700 bg-[#222629] rounded-2xl m-4">
         <h2 className="sr-only">Filters</h2>
         <div className="relative py-4">
           <div className="mx-auto flex max-w-7xl justify-between items-center px-4 sm:px-6 lg:px-8">

@@ -223,7 +223,7 @@ const XchangePage: React.FC = () => {
   const totalHistoryOrders = orderHistory.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-6 md:p-8">
+    <div className="min-h-screen bg-[#222629] p-6 md:p-8 rounded-2xl">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
@@ -234,7 +234,7 @@ const XchangePage: React.FC = () => {
           
           {/* Portfolio Stats */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="bg-gradient-to-r from-blue-500/20 to-purple-600/20 border border-blue-500/30 rounded-xl px-4 py-3">
+            <div className="bg-gradient-to-r from-blue-500/20 to-emerald-600/20  border border-blue-500/30 rounded-xl px-4 py-3">
               <div className="text-blue-400 text-sm font-medium">Portfolio Value</div>
               <div className="text-white font-bold text-lg">${parseFloat(totalPortfolioValue).toFixed(2)}</div>
             </div>
@@ -322,7 +322,7 @@ const XchangePage: React.FC = () => {
                   onClick={() => setActiveFilter(btn)}
                   className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                     activeFilter === btn 
-                      ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25" 
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/25" 
                       : "bg-gray-700/50 text-gray-300 hover:bg-gray-700/70 hover:text-white border border-gray-600/50"
                   }`}
                 >

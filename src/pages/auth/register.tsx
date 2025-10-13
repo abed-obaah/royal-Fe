@@ -37,7 +37,7 @@ export default function Register() {
   }, []);
 
 const handleRegister = async () => {
-  // Validation
+  // Validation (keep your existing validation code)
   if (!name.trim() || !email.trim() || !password.trim() || !passwordConfirmation.trim()) {
     setError("All fields are required.");
     return;
@@ -73,16 +73,24 @@ const handleRegister = async () => {
 
     console.log("Registration response:", response);
 
+    // FIXED: Handle successful registration immediately
+    if (response.message && response.message.includes("User registered")) {
+      alert("Registration successful! Please check your email for verification OTP.");
+      navigate("/verify-email", { state: { email } });
+      return; // IMPORTANT: Return early to prevent further execution
+    }
+
+    // If we get here, check for other success cases
     if (response.success) {
-      if (response.data.token) {
+      if (response.data?.token) {
         // Immediate login (no verification required)
         dispatch(setCredentials({ 
           user: response.data.user, 
           token: response.data.token 
         }));
         navigate("/dashboard");
-      } else if (response.data.message) {
-        // Verification required - PASS EMAIL AS STATE
+      } else {
+        // Default success case - go to verification
         alert("Registration successful! Please check your email for verification OTP.");
         navigate("/verify-email", { state: { email } });
       }
@@ -91,12 +99,24 @@ const handleRegister = async () => {
     }
   } catch (err: any) {
     console.error("Registration error:", err);
-    console.error("Error response:", err.response);
-    console.error("Error data:", err.response?.data);
     
-    // Detailed error handling
+    // FIXED: Handle the specific "Account not verified" error
+    if (err.response?.status === 403 && err.response.data?.message === "Account not verified") {
+      // This is actually a success case - registration worked but account needs verification
+      alert("Registration successful! Please check your email for verification OTP.");
+      navigate("/verify-email", { state: { email } });
+      return;
+    }
+    
+    // FIXED: Also handle case where registration succeeds but something else fails
+    if (err.response?.status === 403 && err.response.data?.message?.includes("not verified")) {
+      alert("Registration successful! Please check your email for verification OTP.");
+      navigate("/verify-email", { state: { email } });
+      return;
+    }
+    
+    // Rest of your existing error handling...
     if (err.response?.status === 422) {
-      // Laravel validation errors (usually returns errors object)
       if (err.response.data?.errors) {
         const errors = err.response.data.errors;
         const errorMessages = Object.values(errors).flat();
@@ -107,31 +127,20 @@ const handleRegister = async () => {
         setError("Validation failed. Please check your inputs.");
       }
     } else if (err.response?.status === 400) {
-      // Bad request
       setError(err.response.data?.message || "Invalid request. Please check your inputs.");
     } else if (err.response?.status === 401) {
-      // Unauthorized
       setError(err.response.data?.message || "Authentication failed.");
-    } else if (err.response?.status === 403) {
-      // Forbidden
-      setError(err.response.data?.message || "Access denied.");
     } else if (err.response?.status === 409) {
-      // Conflict (user already exists)
       setError(err.response.data?.message || "User already exists with this email.");
     } else if (err.response?.status === 500) {
-      // Server error
       setError("Server error. Please try again later.");
     } else if (err.code === 'NETWORK_ERROR' || err.message === 'Network Error') {
-      // Network issues
       setError("Network error. Please check your connection and try again.");
     } else if (err.response?.data?.message) {
-      // Generic error message from backend
       setError(err.response.data.message);
     } else if (err.message) {
-      // Other error messages
       setError(err.message);
     } else {
-      // Fallback error
       setError("Registration failed. Please try again.");
     }
   } finally {

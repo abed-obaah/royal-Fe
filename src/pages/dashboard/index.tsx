@@ -50,7 +50,7 @@ const HomeContent = ({ user }: { user: any }) => {
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-xl/7 font-bold text-[#ebecec] sm:truncate sm:text-2xl sm:tracking-tight">
-            Good Morning, {user?.name} ☀️
+            Good Mornings, {user?.name} ☀️
           </h2>
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">

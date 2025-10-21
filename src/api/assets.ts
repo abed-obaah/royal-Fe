@@ -13,6 +13,8 @@ export interface Asset {
   current_roi_percent: string | null; // decimal as string
   total_shares: number;
   available_shares: number;
+   image_base64?: string; // ✅ Add this
+  risk_rating?: string;
   image_url: string | null;
   metadata: Record<string, any> | null;
   status: 'active' | 'inactive';

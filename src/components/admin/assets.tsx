@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { Trash2, Pencil, X, Plus } from "lucide-react";
+import { Trash2, Pencil, X, Plus, Search, Download } from "lucide-react";
 import { 
   fetchAssets, 
   createAsset, 
@@ -12,21 +12,24 @@ import {
   deleteAsset,
   clearError 
 } from "../../slices/assetSlice";
-import { fetchSongs } from "../../slices/songSlice";
+import { fetchSongs, searchSpotify, importSpotify, clearSearchResults } from "../../slices/songSlice";
 import { fetchBaskets } from "../../slices/basketSlice";
 import { RootState, AppDispatch } from "../../store";
 import { Asset, CreateAssetData, UpdateAssetData } from "../../types/asset";
+import { SpotifyTrack } from "../../types/song";
 
 export default function AssetsDashboard() {
   const dispatch = useDispatch<AppDispatch>();
   const { assets, loading, error } = useSelector((state: RootState) => state.assets);
-  const { songs } = useSelector((state: RootState) => state.songs);
+  const { songs, searchResults } = useSelector((state: RootState) => state.songs);
   const { baskets } = useSelector((state: RootState) => state.baskets);
   
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const [formData, setFormData] = useState({
     title: "",
@@ -65,7 +68,7 @@ export default function AssetsDashboard() {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
-        const base64 = reader.result as string; // Full data URL (e.g., data:image/jpeg;base64,...)
+        const base64 = reader.result as string;
         resolve(base64);
       };
       reader.onerror = (error) => reject(error);
@@ -143,8 +146,8 @@ export default function AssetsDashboard() {
 
       // Handle image upload
       if (imageFile) {
-        const base64 = await convertImageToBase64(imageFile); // Full data URL
-        (payload as any).image_base64 = base64.split(',')[1]; // Extract base64 part without MIME
+        const base64 = await convertImageToBase64(imageFile);
+        (payload as any).image_base64 = base64.split(',')[1];
       }
 
       if (selectedAsset) {
@@ -159,6 +162,77 @@ export default function AssetsDashboard() {
       dispatch(fetchAssets({ per_page: 100 }));
     } catch (error) {
       console.error('Error saving asset:', error);
+    }
+  };
+
+  // Import song as asset
+  // Import song as asset
+const importSongAsAsset = async (song: any) => {
+  try {
+    const payload: CreateAssetData = {
+      title: song.title,
+      type: "single",
+      artist: song.artist,
+      price: 10.00, // Default price, can be adjusted
+      total_shares: 1000, // Default shares
+      status: "active",
+      song_id: song.id, // Make sure this is included
+      genre: "Music", // Default genre
+      expected_roi_percent: 15.0, // Default ROI
+      current_roi_percent: 0.0,
+      available_shares: 1000,
+    };
+
+    await dispatch(createAsset(payload)).unwrap();
+    setSearchModalOpen(false);
+    setSearchQuery("");
+    dispatch(clearSearchResults());
+    dispatch(fetchAssets({ per_page: 100 }));
+    
+    console.log('✅ Song imported as asset successfully');
+  } catch (error) {
+    console.error('❌ Error importing song as asset:', error);
+  }
+};
+
+// Import from Spotify as asset
+const importSpotifyAsAsset = async (track: SpotifyTrack) => {
+  try {
+    // First import the song to get a song_id
+    const result = await dispatch(importSpotify(track.spotify_id)).unwrap();
+    const importedSong = result.song;
+    
+    // Then create asset from the imported song with the song_id
+    const payload: CreateAssetData = {
+      title: track.title,
+      type: "single",
+      artist: track.artist,
+      price: 10.00,
+      total_shares: 1000,
+      status: "active",
+      song_id: importedSong.id, // Use the imported song's ID
+      genre: "Music",
+      expected_roi_percent: 15.0,
+      current_roi_percent: 0.0,
+      available_shares: 1000,
+    };
+
+    await dispatch(createAsset(payload)).unwrap();
+    setSearchModalOpen(false);
+    setSearchQuery("");
+    dispatch(clearSearchResults());
+    dispatch(fetchAssets({ per_page: 100 }));
+    
+    console.log('✅ Spotify track imported as asset successfully');
+  } catch (error) {
+    console.error('❌ Error importing Spotify track as asset:', error);
+  }
+};
+
+  // Search Spotify
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      dispatch(searchSpotify(searchQuery));
     }
   };
 
@@ -197,17 +271,32 @@ export default function AssetsDashboard() {
     }));
   };
 
+  // Format duration from milliseconds to minutes:seconds
+  const formatDuration = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = ((ms % 60000) / 1000).toFixed(0);
+    return `${minutes}:${seconds.padStart(2, '0')}`;
+  };
+
   return (
     <div className="p-8 bg-[#111] min-h-screen text-white">
       {/* Header */}
       <header className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">📊 Assets Manager</h1>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" /> Add Asset
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSearchModalOpen(true)}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg shadow text-sm font-medium"
+          >
+            <Search className="w-4 h-4" /> Import Song
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" /> Add Asset
+          </button>
+        </div>
       </header>
 
       {/* Error Display */}
@@ -518,10 +607,10 @@ export default function AssetsDashboard() {
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">Current Image</label>
                     <img
-                      src={`data:image/jpeg;base64,${selectedAsset.image_base64}`} // Use base64 directly
+                      src={`data:image/jpeg;base64,${selectedAsset.image_base64}`}
                       alt="Current"
                       className="w-32 h-32 rounded object-cover"
-                      onError={(e) => console.log('Image load error:', e)} // Debug failed loads
+                      onError={(e) => console.log('Image load error:', e)}
                     />
                   </div>
                 )}
@@ -542,6 +631,132 @@ export default function AssetsDashboard() {
               >
                 {selectedAsset ? "Update" : "Add"} Asset
               </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* Import Song Modal */}
+      <Dialog open={searchModalOpen} onClose={() => setSearchModalOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/70" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-[#1e1e1e] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <DialogTitle className="text-xl font-bold text-white">
+                Import Song as Asset
+              </DialogTitle>
+              <button 
+                className="text-gray-400 hover:text-white" 
+                onClick={() => {
+                  setSearchModalOpen(false);
+                  setSearchQuery("");
+                  dispatch(clearSearchResults());
+                }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Search Section */}
+            <div className="mb-6">
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  placeholder="Search for songs on Spotify..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="flex-1 p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                />
+                <button
+                  onClick={handleSearch}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white"
+                  disabled={!searchQuery.trim()}
+                >
+                  Search
+                </button>
+              </div>
+
+              {/* Spotify Search Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  <h3 className="text-lg font-semibold text-white">Spotify Results</h3>
+                  {searchResults.map((track) => (
+                    <div
+                      key={track.spotify_id}
+                      className="flex items-center justify-between bg-[#222] rounded p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        {track.image_url && (
+                          <img
+                            src={track.image_url}
+                            alt={track.title}
+                            className="w-12 h-12 rounded object-cover"
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-white">{track.title}</p>
+                          <p className="text-gray-400 text-sm">
+                            {track.artist} • {track.album}
+                            {track.duration_ms && ` • ${formatDuration(track.duration_ms)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => importSpotifyAsAsset(track)}
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
+                      >
+                        <Download className="w-4 h-4" /> Import as Asset
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Existing Songs Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-white">Existing Songs</h3>
+              {songs.length === 0 ? (
+                <div className="text-gray-400 italic text-center py-4">
+                  No songs available. Search Spotify to import songs first.
+                </div>
+              ) : (
+                songs.map((song) => (
+                  <div
+                    key={song.id}
+                    className="flex items-center justify-between bg-[#222] rounded p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      {song.image_url ? (
+                        <img
+                          src={song.image_url.startsWith('http') ? song.image_url : `/storage/${song.image_url}`}
+                          alt={song.title}
+                          className="w-12 h-12 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded bg-gray-700 flex items-center justify-center text-gray-400">
+                          No Image
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-white">{song.title}</p>
+                        <p className="text-gray-400 text-sm">
+                          {song.artist && `Artist: ${song.artist}`}
+                          {song.album && ` • Album: ${song.album}`}
+                          {song.duration_ms && ` • Duration: ${formatDuration(song.duration_ms)}`}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => importSongAsAsset(song)}
+                      className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-sm text-white"
+                    >
+                      <Download className="w-4 h-4" /> Create Asset
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </DialogPanel>
         </div>

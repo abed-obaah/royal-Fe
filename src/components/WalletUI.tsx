@@ -148,7 +148,7 @@ export default function WalletUI() {
   return (
     <div className="p-6">
       {/* Wallet Section */}
-      <div className="bg-[#222629] p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between">
+      <div className="bg-[#222629] p-3 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between">
         <div className="flex flex-col space-y-6">
           <div>
             <select className="border rounded-lg px-3 py-1 text-gray-600 bg-white">
@@ -172,7 +172,7 @@ export default function WalletUI() {
           <div className="text-blue-400 text-sm">Total Balance</div>
 
           {/* Buttons */}
-          <div className="flex space-x-3 mt-4">
+          <div className="flex space-x-2 mt-4">
             <button
               onClick={() => setIsDepositModalOpen(true)}
               className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-colors"

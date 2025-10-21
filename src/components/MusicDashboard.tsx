@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
 import { ChevronDownIcon, FunnelIcon } from '@heroicons/react/20/solid';
 import { FaInfoCircle, FaPlus, FaMinus } from 'react-icons/fa';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import WalletUi from './WalletUI';
 import { fetchPortfolio } from "../slices/portfolioSlice";
 import { fetchAssets, buyAssetShares } from "../slices/assetSlice";
@@ -113,12 +115,27 @@ export default function AlbumGrid() {
       setClickedIndex(index);
       
       const quantity = quantities[asset.id] || 1;
+      const totalCost = (asset.price * quantity).toFixed(2);
+      
+      // Show loading toast
+      const loadingToast = toast.loading(`Purchasing ${quantity} shares of ${asset.title}...`);
       
       // Use the asset slice's buyAssetShares
       await dispatch(buyAssetShares({
         id: asset.id,
         shares: quantity
       })).unwrap();
+      
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingToast);
+      toast.success(`Successfully purchased ${quantity} shares of "${asset.title}" for $${totalCost}!`, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
       
       // Refresh portfolio to get updated balances
       dispatch(fetchPortfolio());
@@ -133,8 +150,61 @@ export default function AlbumGrid() {
       }));
       
       setTimeout(() => setClickedIndex(null), 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Purchase failed:', error);
+      
+      // Dismiss any loading toasts
+      toast.dismiss();
+      
+      // Handle insufficient funds error
+      if (error?.message?.includes('Insufficient funds') || error?.response?.data?.message?.includes('Insufficient funds')) {
+        const quantity = quantities[asset.id] || 1;
+        const totalCost = (asset.price * quantity).toFixed(2);
+        const shortfall = error?.response?.data?.shortfall || '0.00';
+        const available = error?.response?.data?.available || '0.00';
+        
+        toast.error(
+          <div>
+            <div className="font-semibold">Insufficient Funds</div>
+            <div className="text-sm mt-1">
+              You need ${totalCost} but only have ${available} available.
+              <br />
+              <span className="text-yellow-300">Shortfall: ${shortfall}</span>
+            </div>
+            <div className="text-xs mt-2 text-gray-300">
+              Please add funds to your wallet to complete this purchase.
+            </div>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 8000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            style: { background: '#1f2937', color: 'white' }
+          }
+        );
+      } else if (error?.message?.includes('Sold out') || error?.response?.data?.message?.includes('available shares')) {
+        // Handle sold out or insufficient shares
+        toast.error(
+          `"${asset.title}" is sold out or doesn't have enough available shares.`,
+          {
+            position: "top-right",
+            autoClose: 5000,
+          }
+        );
+      } else {
+        // Handle other errors
+        toast.error(
+          `Purchase "${asset.title}" failed due to insufficient funds. Please top up your balance and try again. `,
+          {
+            position: "top-right",
+            autoClose: 5000,
+          }
+        );
+      }
+      
       setClickedIndex(null);
     }
   };
@@ -179,6 +249,10 @@ export default function AlbumGrid() {
 
   const clearAllFilters = () => {
     setActiveFilters({});
+    toast.info("All filters cleared", {
+      position: "top-right",
+      autoClose: 3000,
+    });
   };
 
   const getFilteredAssets = () => {
@@ -237,6 +311,18 @@ export default function AlbumGrid() {
     return (
       <div className="min-h-screen ">
         <WalletUi />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
         <div className="flex justify-center items-center py-12">
           <div className="text-white">Loading assets...</div>
         </div>
@@ -247,6 +333,20 @@ export default function AlbumGrid() {
   return (
     <div className="min-h-screen ">
       <WalletUi/>
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
 
       {/* Filters Section */}
       <Disclosure as="section" className="border-b border-gray-700 bg-[#222629] rounded-2xl m-4">

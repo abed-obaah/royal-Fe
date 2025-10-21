@@ -1,8 +1,28 @@
 import React, { useState } from "react";
 import { X, CopyIcon, ArrowLeft } from "lucide-react";
+import { useSelector } from "react-redux";
+import { RootState } from "../slices/userSlice";
+import { clearCredentials } from "../slices/userSlice";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
 export default function ReferralDrawer({ open, onClose }) {
   const [view, setView] = useState("referral"); // "referral" | "history"
+  const user = useSelector((state: RootState) => state.user.user);
+    const token = useSelector((state: RootState) => state.user.token);
+
+    const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (user?.referral_code) {
+      navigator.clipboard.writeText(user.referral_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // reset after 2s
+    }
+  };
+    
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
 
   const resetAndClose = () => {
     setView("referral"); // reset back when closing
@@ -57,15 +77,24 @@ export default function ReferralDrawer({ open, onClose }) {
 
               <p className="text-white text-sm">
                 Invite your friends and family to start investing now on the
-                SplitXchange with your referral code and earn money.
+                Royafi with your referral code and earn money.
               </p>
 
               <div className="bg-gray-100 rounded-xl p-4 text-center">
                 <p className="text-sm text-black">Share your referral code</p>
                 <h3 className="text-2xl font-bold text-blue-900 flex justify-center items-center gap-2">
-                  pDkvke
-                  <CopyIcon className="w-6 h-6 text-gray-500 hover:text-black cursor-pointer" />
+                 {user?.referral_code || ''}
+                   <CopyIcon
+                    onClick={handleCopy}
+                    className="w-6 h-6 text-gray-500 hover:text-black cursor-pointer"
+                  />
                 </h3>
+
+                {copied && (
+                  <p className="text-green-600 text-sm mt-2 transition-opacity duration-300">
+                    Copied to clipboard!
+                  </p>
+                )}
               </div>
 
               <div className="text-left">

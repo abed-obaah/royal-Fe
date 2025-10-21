@@ -310,6 +310,7 @@ export default function Example() {
                     <span className="hidden lg:flex lg:items-center">
                       <span aria-hidden="true" className="ml-4 text-md/6 font-semibold text-white">
                         {user?.name || 'User'}
+                        {/* {user?.referral_code || 'User'} */}
                       </span>
                       <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
                     </span>

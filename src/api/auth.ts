@@ -8,23 +8,14 @@ export interface RegisterRequest {
   password: string;
   password_confirmation: string;
   country?: string; // Optional
+  referral_code?: string; // Add this line
 }
 
 export interface RegisterResponse {
-  success: boolean;
-  data: {
-    message: string; // Added this field
-    user: {
-      id: number;
-      name: string;
-      email: string;
-      role: string;
-      created_at: string;
-      updated_at: string;
-      // Removed email_verified_at since it's not in the response
-    };
-    // Removed token field since it's not returned during registration
-  };
+  message: string;
+  user_id: number;
+  referral_code: string;
+  referred_by: boolean;
 }
 
 export const register = async (userData: RegisterRequest): Promise<RegisterResponse> => {
@@ -102,7 +93,7 @@ export interface ResendVerificationResponse {
 export const resendVerification = async (emailData: ResendVerificationRequest): Promise<ResendVerificationResponse> => {
   const response = await api.post<ResendVerificationResponse>("resend-verification", emailData);
   return response.data;
-};``
+};
 
 // -------------------- Verify OTP --------------------
 export interface VerifyOtpRequest {
@@ -112,8 +103,6 @@ export interface VerifyOtpRequest {
 
 export interface VerifyOtpResponse {
   message: string;
-  // Your backend doesn't return user data or token in verify response
-  // Adjust according to your actual backend response
 }
 
 export const verifyOtp = async (verificationData: VerifyOtpRequest): Promise<VerifyOtpResponse> => {
@@ -132,5 +121,17 @@ export interface ResendOtpResponse {
 
 export const resendOtp = async (emailData: ResendOtpRequest): Promise<ResendOtpResponse> => {
   const response = await api.post<ResendOtpResponse>("resend-otp", emailData);
+  return response.data;
+};
+
+// -------------------- Referral Check --------------------
+export interface ReferralCheckResponse {
+  valid: boolean;
+  referrer_name: string;
+  message: string;
+}
+
+export const checkReferralCode = async (code: string): Promise<ReferralCheckResponse> => {
+  const response = await api.get<ReferralCheckResponse>(`referral/check/${code}`);
   return response.data;
 };

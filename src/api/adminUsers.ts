@@ -88,6 +88,17 @@ export interface RoleUpdateRequest {
   role: string;
 }
 
+export interface UpdateWalletRequest {
+  available_balance?: number;
+  invested_balance?: number;
+  reason: string;
+}
+
+export interface TransferInvestmentRequest {
+  target_user_id: string;
+  reason: string;
+}
+
 // -------------------- Admin Users API Calls --------------------
 export const adminUsersApi = {
   // Get all users
@@ -144,6 +155,12 @@ export const adminUsersApi = {
     return response.data;
   },
 
+  // Update user wallet balances directly
+  updateUserWallet: async (userId: number, data: UpdateWalletRequest): Promise<any> => {
+    const response = await api.put(`/admin/users/${userId}/wallet`, data);
+    return response.data;
+  },
+
   // Credit user wallet
   creditUserWallet: async (userId: number, data: CreditDebitRequest): Promise<any> => {
     const response = await api.post(`/admin/users/${userId}/wallet/credit`, data);
@@ -174,15 +191,33 @@ export const adminUsersApi = {
     return response.data;
   },
 
-  // Revoke investment
+  // Revoke investment (with refund)
   revokeInvestment: async (userId: number, investmentId: number): Promise<any> => {
     const response = await api.delete(`/admin/users/${userId}/investments/${investmentId}`);
     return response.data;
   },
 
-  // Clear user portfolio
+  // Revoke investment without refund
+  revokeInvestmentWithoutRefund: async (userId: number, investmentId: number, data: { reason: string }): Promise<any> => {
+    const response = await api.delete(`/admin/users/${userId}/investments/${investmentId}/no-refund`, { data });
+    return response.data;
+  },
+
+  // Clear user portfolio (with refund)
   clearUserPortfolio: async (userId: number, data: { reason: string }): Promise<any> => {
     const response = await api.delete(`/admin/users/${userId}/portfolio`, { data });
+    return response.data;
+  },
+
+  // Clear portfolio without refund
+  clearPortfolioWithoutRefund: async (userId: number, data: { reason: string }): Promise<any> => {
+    const response = await api.delete(`/admin/users/${userId}/portfolio/no-refund`, { data });
+    return response.data;
+  },
+
+  // Transfer investment to another user
+  transferInvestment: async (userId: number, investmentId: number, data: TransferInvestmentRequest): Promise<any> => {
+    const response = await api.post(`/admin/users/${userId}/investments/${investmentId}/transfer`, data);
     return response.data;
   },
 

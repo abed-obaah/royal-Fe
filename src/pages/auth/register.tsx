@@ -26,21 +26,9 @@ export default function Register() {
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [referrerName, setReferrerName] = useState("");
   const [validatingReferral, setValidatingReferral] = useState(false);
   const [referralValid, setReferralValid] = useState<boolean | null>(null);
-
-  // Check screen size and set mobile state
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   // Check for referral code in URL parameters
   useEffect(() => {
@@ -244,281 +232,295 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Section */}
-      <div className={`${isMobile ? "w-full" : "w-1/2"} bg-gradient-to-b from-[#1c2024] via-[#1d2125] to-[#1e2226] text-white flex flex-col justify-center px-8 md:px-20`}>
-        <h1 className="text-3xl font-semibold mb-6 text-center">Sign up</h1>
-        
-        {/* Referral Banner */}
-        {referrerName && (
-          <div className="mb-4 p-4 bg-green-900/30 border border-green-600 rounded-lg">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <span className="text-green-400 font-medium">
-                 You were referred by {referrerName}!
-              </span>
-            </div>
-            {/* <p className="text-green-300 text-sm mt-1">
-              When you invest $10+, {referrerName} will earn a 10% commission!
-            </p> */}
-          </div>
-        )}
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left Section - Registration Form */}
+      <div className="w-full lg:w-1/2 bg-gradient-to-b from-[#1c2024] via-[#1d2125] to-[#1e2226] text-white flex flex-col justify-center px-4 sm:px-6 md:px-12 lg:px-16 xl:px-20 py-8 lg:py-12">
+        {/* Logo for mobile */}
+        <div className="lg:hidden flex justify-center mb-6">
+          <img
+            src={logo}
+            alt="RoyaFi Logo"
+            className="h-20 w-20 sm:h-24 sm:w-24 object-contain"
+          />
+        </div>
 
-        <Card className="bg-transparent border-0 shadow-none">
-          <CardContent className="space-y-4">
-            {/* Name Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <User className="w-5 h-5 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Full Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="bg-transparent border-none text-white focus:ring-0 h-full placeholder-gray-400 focus:bg-transparent active:bg-transparent"
-                disabled={loading}
-              />
+        <div className="max-w-md mx-auto w-full lg:max-w-none">
+          <h1 className="text-2xl sm:text-3xl font-semibold mb-4 sm:mb-6 text-center lg:text-left">
+            Sign up
+          </h1>
+          
+          {/* Referral Banner */}
+          {referrerName && (
+            <div className="mb-4 p-3 sm:p-4 bg-green-900/30 border border-green-600 rounded-lg">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0" />
+                <span className="text-green-400 font-medium text-sm sm:text-base">
+                  You were referred by {referrerName}!
+                </span>
+              </div>
             </div>
+          )}
 
-            {/* Email Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <Mail className="w-5 h-5 text-gray-400" />
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-transparent border-none text-white focus:ring-0 h-full placeholder-gray-400 focus:bg-transparent active:bg-transparent"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <Lock className="w-5 h-5 text-gray-400" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="border-none text-white focus:ring-0 h-full flex-1 bg-transparent placeholder-gray-400 focus:bg-transparent active:bg-transparent"
-                disabled={loading}
-              />
-              {showPassword ? (
-                <EyeOff
-                  className="w-5 h-5 text-gray-400 cursor-pointer"
-                  onClick={() => setShowPassword(false)}
-                />
-              ) : (
-                <Eye
-                  className="w-5 h-5 text-gray-400 cursor-pointer"
-                  onClick={() => setShowPassword(true)}
-                />
-              )}
-            </div>
-
-            {/* Password Confirmation Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <Lock className="w-5 h-5 text-gray-400" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Confirm Password"
-                value={passwordConfirmation}
-                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                className="border-none text-white focus:ring-0 h-full flex-1 bg-transparent placeholder-gray-400 focus:bg-transparent active:bg-transparent"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Country of Residence Field */}
-            <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-              <MapPin className="w-5 h-5 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Country of Residence (Optional)"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className="bg-transparent border-none text-white focus:ring-0 h-full placeholder-gray-400 focus:bg-transparent active:bg-transparent"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Referral Code Field */}
-            <div className="relative">
-              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-14">
-                <Users className="w-5 h-5 text-gray-400" />
+          <Card className="bg-transparent border-0 shadow-none">
+            <CardContent className="space-y-3 sm:space-y-4 p-0">
+              {/* Name Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-12 sm:h-14">
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
                 <Input
                   type="text"
-                  placeholder="Referral Code (Optional)"
-                  value={referralCode}
-                  onChange={(e) => handleReferralCodeChange(e.target.value)}
-                  className="bg-transparent border-none text-white focus:ring-0 h-full placeholder-gray-400 focus:bg-transparent active:bg-transparent"
-                  disabled={loading || validatingReferral}
+                  placeholder="Full Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-transparent border-none text-white focus:ring-0 h-full flex-1 placeholder-gray-400 text-sm sm:text-base"
+                  disabled={loading}
                 />
-                {referralCode && (
-                  <button
-                    onClick={clearReferralCode}
-                    className="text-gray-400 hover:text-white transition-colors"
-                    disabled={loading}
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
-                )}
+              </div>
+
+              {/* Email Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-12 sm:h-14">
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-transparent border-none text-white focus:ring-0 h-full flex-1 placeholder-gray-400 text-sm sm:text-base"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Password Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-12 sm:h-14 relative">
+                <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="border-none text-white focus:ring-0 h-full flex-1 pr-10 placeholder-gray-400 text-sm sm:text-base"
+                  disabled={loading}
+                />
+                <div className="absolute right-3">
+                  {showPassword ? (
+                    <EyeOff
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 cursor-pointer"
+                      onClick={() => setShowPassword(false)}
+                    />
+                  ) : (
+                    <Eye
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 cursor-pointer"
+                      onClick={() => setShowPassword(true)}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Password Confirmation Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-12 sm:h-14">
+                <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Confirm Password"
+                  value={passwordConfirmation}
+                  onChange={(e) => setPasswordConfirmation(e.target.value)}
+                  className="border-none text-white focus:ring-0 h-full flex-1 placeholder-gray-400 text-sm sm:text-base"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Country of Residence Field */}
+              <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-12 sm:h-14">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                <Input
+                  type="text"
+                  placeholder="Country of Residence (Optional)"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="bg-transparent border-none text-white focus:ring-0 h-full flex-1 placeholder-gray-400 text-sm sm:text-base"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Referral Code Field */}
+              <div className="relative">
+                <div className="flex items-center gap-2 bg-gray-800 rounded px-3 h-12 sm:h-14">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                  <Input
+                    type="text"
+                    placeholder="Referral Code (Optional)"
+                    value={referralCode}
+                    onChange={(e) => handleReferralCodeChange(e.target.value)}
+                    className="bg-transparent border-none text-white focus:ring-0 h-full flex-1 placeholder-gray-400 text-sm sm:text-base"
+                    disabled={loading || validatingReferral}
+                  />
+                  <div className="flex items-center gap-1">
+                    {referralCode && (
+                      <button
+                        onClick={clearReferralCode}
+                        className="text-gray-400 hover:text-white transition-colors p-1"
+                        disabled={loading}
+                      >
+                        <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
+                    )}
+                    {validatingReferral && (
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                    {referralValid === true && (
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                    )}
+                    {referralValid === false && (
+                      <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Referral validation status */}
                 {validatingReferral && (
-                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-blue-400 text-xs sm:text-sm mt-1 flex items-center gap-1">
+                    <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    Validating referral code...
+                  </p>
                 )}
-                {referralValid === true && (
-                  <CheckCircle className="w-5 h-5 text-green-400" />
+                {referralValid === true && referrerName && (
+                  <p className="text-green-400 text-xs sm:text-sm mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Valid! Referred by {referrerName}
+                  </p>
                 )}
                 {referralValid === false && (
-                  <XCircle className="w-5 h-5 text-red-400" />
+                  <p className="text-red-400 text-xs sm:text-sm mt-1 flex items-center gap-1">
+                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                    Invalid referral code
+                  </p>
                 )}
               </div>
-              
-              {/* Referral validation status */}
-              {validatingReferral && (
-                <p className="text-blue-400 text-sm mt-1 flex items-center gap-1">
-                  <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                  Validating referral code...
-                </p>
-              )}
-              {referralValid === true && referrerName && (
-                <p className="text-green-400 text-sm mt-1 flex items-center gap-1">
-                  <CheckCircle className="w-4 h-4" />
-                  Valid! Referred by {referrerName}
-                </p>
-              )}
-              {referralValid === false && (
-                <p className="text-red-400 text-sm mt-1 flex items-center gap-1">
-                  <XCircle className="w-4 h-4" />
-                  Invalid referral code
-                </p>
-              )}
-            </div>
 
-            {/* Terms of Service */}
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
-                disabled={loading}
-              />
-              <label className="text-sm text-gray-400">
-                I have read and agree to the{" "}
-                <span className="text-[#009ad2] underline cursor-pointer">
-                  Terms of Service
-                </span>
-              </label>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="p-3 bg-red-900/30 border border-red-600 rounded-lg">
-                <p className="text-red-400 text-sm flex items-center gap-2">
-                  <XCircle className="w-4 h-4 flex-shrink-0" />
-                  {error}
-                </p>
+              {/* Terms of Service */}
+              <div className="flex items-start space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  checked={agree}
+                  onChange={(e) => setAgree(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800 mt-0.5 flex-shrink-0"
+                  disabled={loading}
+                />
+                <label className="text-xs sm:text-sm text-gray-400 leading-tight">
+                  I have read and agree to the{" "}
+                  <span className="text-[#009ad2] underline cursor-pointer">
+                    Terms of Service
+                  </span>
+                </label>
               </div>
-            )}
 
-            <div className="flex flex-col items-center space-y-4 mt-6">
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  onClick={handleRegister}
-                  disabled={loading || (referralCode && validatingReferral) || (referralCode && referralValid === false)}
-                  className="hover:bg-[#20475bcf] w-64 h-12 text-lg inline-flex items-center rounded-full bg-[#20475a] px-2 py-1 font-medium text-[#009ad2] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Creating Account...
-                    </>
-                  ) : (
-                    "Create Account"
-                  )}
-                </Button>
+              {/* Error Message */}
+              {error && (
+                <div className="p-3 bg-red-900/30 border border-red-600 rounded-lg">
+                  <p className="text-red-400 text-xs sm:text-sm flex items-start gap-2">
+                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 mt-0.5" />
+                    {error}
+                  </p>
+                </div>
+              )}
 
-                <Link to="/">
+              <div className="flex flex-col items-center space-y-4 mt-6">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center w-full">
                   <Button
-                    variant="secondary"
-                    className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-full w-64 h-12 text-lg"
-                    disabled={loading}
+                    onClick={handleRegister}
+                    disabled={loading || (referralCode && validatingReferral) || (referralCode && referralValid === false)}
+                    className="hover:bg-[#20475bcf] w-full sm:w-48 lg:w-56 xl:w-64 h-11 sm:h-12 text-sm sm:text-base inline-flex items-center justify-center rounded-full bg-[#20475a] px-4 py-2 font-medium text-[#009ad2] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
-                    Back to Login
+                    {loading ? (
+                      <span className="flex items-center">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Creating Account...
+                      </span>
+                    ) : (
+                      "Create Account"
+                    )}
                   </Button>
+
+                  <Link to="/" className="w-full sm:w-auto">
+                    <Button
+                      variant="secondary"
+                      className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-full w-full sm:w-48 lg:w-56 xl:w-64 h-11 sm:h-12 text-sm sm:text-base transition-colors duration-200"
+                      disabled={loading}
+                    >
+                      Back to Login
+                    </Button>
+                  </Link>
+                </div>
+
+                <Link
+                  to="/recover"
+                  className="text-xs sm:text-sm text-gray-400 hover:underline cursor-pointer text-center"
+                >
+                  Recover your password
                 </Link>
               </div>
+            </CardContent>
+          </Card>
 
-              <Link
-                to="/recover"
-                className="text-sm text-gray-400 hover:underline cursor-pointer text-center"
-              >
-                Recover your password
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Referral Program Info */}
-        <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-          <h3 className="text-lg font-semibold text-blue-400 mb-2 flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Share & Earn Program
-          </h3>
-          <p className="text-blue-300 text-sm mb-3">
-            After registration, you'll get your own referral code to share with friends and earn commissions!
-          </p>
-          <ul className="text-xs text-blue-400 space-y-1">
-            <li className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-xs">1</div>
-              <span>Invest $20+ to become eligible for referrals</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-xs">2</div>
-              <span>Share your unique code with friends</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-xs">3</div>
-              <span>Earn 10% commission when they invest $10+</span>
-            </li>
-          </ul>
+          {/* Referral Program Info - Mobile */}
+          <div className="lg:hidden mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+            <h3 className="text-base sm:text-lg font-semibold text-blue-400 mb-2 flex items-center gap-2">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+              Share & Earn Program
+            </h3>
+            <p className="text-blue-300 text-xs sm:text-sm mb-3">
+              After registration, you'll get your own referral code to share with friends and earn commissions!
+            </p>
+            <ul className="text-xs text-blue-400 space-y-1">
+              <li className="flex items-start gap-2">
+                <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-xs mt-0.5 flex-shrink-0">1</div>
+                <span>Invest $20+ to become eligible for referrals</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-xs mt-0.5 flex-shrink-0">2</div>
+                <span>Share your unique code with friends</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-xs mt-0.5 flex-shrink-0">3</div>
+                <span>Earn 10% commission when they invest $10+</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      {/* Right Section - Hidden on mobile */}
-      {!isMobile && (
-        <div className="w-1/2 bg-gradient-to-r from-[#1d6c8f] via-[#167da8] to-[#0197cd] flex items-center justify-center">
-          <div className="text-center text-white">
-            <div className="flex items-center justify-center gap-4">
-              <div className="flex items-center justify-center">
-                <img
-                  src={logo}
-                  alt="RoyaFi Logo"
-                  className="h-48 w-48 object-contain"
-                />
-              </div>
-            </div>
-            {/* Referral Info on Right Side */}
-            <div className="mt-8 p-6 bg-white/10 rounded-lg backdrop-blur-sm max-w-md">
-              <h3 className="text-xl font-bold mb-4"> Invite Friends & Earn</h3>
+      {/* Right Section - Brand Area */}
+      <div className="w-full lg:w-1/2 bg-gradient-to-r from-[#1d6c8f] via-[#167da8] to-[#0197cd] flex items-center justify-center py-8 lg:py-0 min-h-[40vh] sm:min-h-[50vh] lg:min-h-screen">
+        <div className="text-center text-white px-4 sm:px-8">
+          {/* Logo for desktop */}
+          <div className="hidden lg:flex items-center justify-center mb-8">
+            <img
+              src={logo}
+              alt="RoyaFi Logo"
+              className="h-32 w-32 xl:h-48 xl:w-48 object-contain transition-transform duration-300 hover:scale-105"
+            />
+          </div>
+          
+          {/* Referral Info */}
+          <div className="max-w-md mx-auto">
+            <div className="hidden lg:block p-6 bg-white/10 rounded-lg backdrop-blur-sm">
+              <h3 className="text-xl font-bold mb-4">Invite Friends & Earn</h3>
               <div className="space-y-4 text-left">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
                   <div>
                     <p className="font-semibold">Become Eligible</p>
                     <p className="text-sm opacity-90">Invest $20+ in any asset to unlock referral rewards</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">2</div>
                   <div>
                     <p className="font-semibold">Share Your Code</p>
                     <p className="text-sm opacity-90">Send friends your unique 6-character referral code</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
                   <div>
                     <p className="font-semibold">Earn Commission</p>
                     <p className="text-sm opacity-90">Get 10% of their first investment when they invest $10+</p>
@@ -533,9 +535,28 @@ export default function Register() {
                 </p>
               </div>
             </div>
+
+            {/* Mobile-friendly referral info */}
+            <div className="lg:hidden bg-white/10 rounded-lg p-4 backdrop-blur-sm">
+              <h3 className="text-lg font-bold mb-3">Start Earning</h3>
+              <div className="grid grid-cols-1 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+                  <span>Invest $20+ to unlock referrals</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                  <span>Share your code</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                  <span>Earn 10% commission</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

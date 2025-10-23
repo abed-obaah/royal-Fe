@@ -336,7 +336,7 @@ export default function WalletUI() {
         {/* Table Header */}
         <div className="p-6 border-b border-gray-700">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h2 className="text-xl font-bold text-white">Transaction History</h2>
+            <h2 className="text-xl font-bold text-white">Transaction Historys</h2>
             
             <div className="flex flex-col md:flex-row gap-3">
               {/* Search */}

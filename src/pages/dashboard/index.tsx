@@ -23,6 +23,7 @@ import {
   HomeIcon,
   UsersIcon,
   XMarkIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/20/solid';
 import Logo from '../../assets/RoyaFi.png';
@@ -50,7 +51,7 @@ const HomeContent = ({ user }: { user: any }) => {
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-xl/7 font-bold text-[#ebecec] sm:truncate sm:text-2xl sm:tracking-tight">
-            Good Mornings, {user?.name} ☀️
+            Good Morning, {user?.name} ☀️
           </h2>
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">
@@ -85,6 +86,45 @@ const HomeContent = ({ user }: { user: any }) => {
   );
 };
 
+// Suspension Modal Component
+const SuspensionModal = () => {
+  return (
+    <Dialog static open={true} onClose={() => {}} className="relative z-[100]">
+      <DialogBackdrop className="fixed inset-0 bg-red-900/80 backdrop-blur-sm" />
+      
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <DialogPanel className="w-full max-w-md transform rounded-2xl bg-red-50 p-6 text-left align-middle shadow-xl transition-all">
+          <div className="flex flex-col items-center text-center">
+            {/* Warning Icon */}
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100">
+              <ExclamationTriangleIcon className="size-6 text-red-600" aria-hidden="true" />
+            </div>
+            
+            {/* Main Content */}
+            <div className="mt-4">
+              <h3 className="text-lg font-bold leading-6 text-red-900">
+                Account Suspended
+              </h3>
+              <div className="mt-2">
+                <p className="text-sm text-red-700">
+                  Your account has been temporarily suspended due to a violation of our terms of service. 
+                  Please contact our support team to resolve this issue.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Text */}
+            <div className="mt-6 border-t border-red-200 pt-4">
+              <p className="text-xs text-red-600">
+                If you believe this is a mistake, please contact admin immediately.
+              </p>
+            </div>
+          </div>
+        </DialogPanel>
+      </div>
+    </Dialog>
+  );
+};
 
 const navigation = [
   { name: 'Home', href: '#', icon: HomeIcon, component: HomeContent },
@@ -142,9 +182,15 @@ export default function Example() {
     }
   };
 
+  // Check if user is suspended
+  const isSuspended = user?.status === 'suspended';
+
   return (
     <>
       <div className="bg-[#31373e]">
+        {/* Suspension Modal - appears when user is suspended */}
+        {isSuspended && <SuspensionModal />}
+        
         <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
           <DialogBackdrop
             transition

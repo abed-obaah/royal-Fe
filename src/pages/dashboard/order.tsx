@@ -340,20 +340,48 @@ const XchangePage: React.FC = () => {
           {/* Table Section */}
           <div className="p-6">
             {/* Table Header */}
-            <div className={`grid gap-4 px-4 py-3 text-gray-400 text-sm font-semibold border-b border-gray-700/50 mb-2 ${
-              activeTab === "portfolio" ? "grid-cols-12" : "grid-cols-13"
-            }`}>
-              <div className={activeTab === "portfolio" ? "col-span-4" : "col-span-5"}>ASSET</div>
-              <div className="col-span-2 text-center">TYPE</div>
-              {activeTab === "history" && (
-                <div className="col-span-2 text-center">ORDER TYPE</div>
-              )}
-              <div className="col-span-2 text-center">PRICE & CHANGE</div>
-              <div className="col-span-2 text-center">DATE</div>
-              <div className="col-span-2 text-right">
-                {activeTab === "portfolio" ? "ACTIONS" : "STATUS"}
-              </div>
-            </div>
+           <div
+  className={`grid gap-3 px-4 py-3 text-gray-400 text-xs sm:text-sm font-semibold border-b border-gray-700/50 mb-2 
+  ${activeTab === "portfolio" ? "sm:grid-cols-12" : "sm:grid-cols-13"} 
+  grid-cols-2`}
+>
+  {/* ASSET */}
+  <div
+    className={`${
+      activeTab === "portfolio" ? "sm:col-span-4" : "sm:col-span-5"
+    } col-span-1 text-left`}
+  >
+    ASSET
+  </div>
+
+  {/* TYPE */}
+  <div className="text-right sm:col-span-2 col-span-1 sm:text-center">
+    TYPE
+  </div>
+
+  {/* ORDER TYPE (only for history) */}
+  {activeTab === "history" && (
+    <div className="hidden sm:block sm:col-span-2 text-center">
+      ORDER TYPE
+    </div>
+  )}
+
+  {/* PRICE & CHANGE */}
+  <div className="hidden sm:block sm:col-span-2 text-center">
+    PRICE & CHANGE
+  </div>
+
+  {/* DATE */}
+  <div className="hidden sm:block sm:col-span-2 text-center">
+    DATE
+  </div>
+
+  {/* ACTIONS / STATUS */}
+  <div className="hidden sm:block sm:col-span-2 text-right">
+    {activeTab === "portfolio" ? "ACTIONS" : "STATUS"}
+  </div>
+</div>
+
 
             {/* Table Body */}
             <div className="space-y-2">

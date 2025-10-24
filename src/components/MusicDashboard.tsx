@@ -413,7 +413,7 @@ export default function AlbumGrid() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1a1d21]">
+    <div className="min-h-screen">
       <WalletUi/>
 
       {/* Toast Container */}
@@ -432,184 +432,188 @@ export default function AlbumGrid() {
 
       {/* Mobile Filter Bar */}
       {isMobile && (
-        <div className="sticky top-0 z-40 bg-[#222629] border-b border-gray-700 p-3">
-          <div className="flex items-center justify-between">
-            <DisclosureButton className="flex items-center gap-2 text-sm font-medium text-gray-300 bg-gray-700/50 px-3 py-2 rounded-lg">
-              <FunnelIcon className="h-4 w-4" />
-              Filters ({activeFilterCount})
-            </DisclosureButton>
-            
-            <Menu as="div" className="relative">
-              <MenuButton className="flex items-center gap-1 text-sm font-medium text-gray-300 bg-gray-700/50 px-3 py-2 rounded-lg">
-                Sort
-                <ChevronDownIcon className="h-4 w-4" />
-              </MenuButton>
-              <MenuItems className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-md bg-gray-800 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
-                <div className="py-1">
-                  {sortOptions.map((option) => (
-                    <MenuItem key={option.value}>
-                      {({ focus }) => (
-                        <button
-                          onClick={() => setSortBy(option.value)}
-                          className={classNames(
-                            option.value === sortBy ? 'font-medium text-white' : 'text-gray-400',
-                            focus ? 'bg-gray-700' : '',
-                            'block w-full px-4 py-2 text-left text-sm'
+        <Disclosure as="div" className="sticky top-0 z-40  border-b border-gray-700 p-3">
+          {({ open }) => (
+            <>
+              <div className="flex items-center justify-between">
+                <DisclosureButton className="flex items-center gap-2 text-sm font-medium text-gray-300 bg-gray-700/50 px-3 py-2 rounded-lg">
+                  <FunnelIcon className="h-4 w-4" />
+                  Filters ({activeFilterCount})
+                </DisclosureButton>
+                
+                <Menu as="div" className="relative">
+                  <MenuButton className="flex items-center gap-1 text-sm font-medium text-gray-300 bg-gray-700/50 px-3 py-2 rounded-lg">
+                    Sort
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </MenuButton>
+                  <MenuItems className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-md bg-gray-800 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                    <div className="py-1">
+                      {sortOptions.map((option) => (
+                        <MenuItem key={option.value}>
+                          {({ focus }) => (
+                            <button
+                              onClick={() => setSortBy(option.value)}
+                              className={classNames(
+                                option.value === sortBy ? 'font-medium text-white' : 'text-gray-400',
+                                focus ? 'bg-gray-700' : '',
+                                'block w-full px-4 py-2 text-left text-sm'
+                              )}
+                            >
+                              {option.name}
+                            </button>
                           )}
-                        >
-                          {option.name}
-                        </button>
-                      )}
-                    </MenuItem>
+                        </MenuItem>
+                      ))}
+                    </div>
+                  </MenuItems>
+                </Menu>
+              </div>
+
+              {/* Mobile Filter Panel */}
+              <DisclosurePanel className="mt-4">
+                <div className="space-y-6">
+                  {Object.entries(filters).map(([filterType, options]) => (
+                    <fieldset key={filterType}>
+                      <legend className="block font-medium text-gray-300 capitalize mb-3">
+                        {filterType === 'roiRange' ? 'ROI' : filterType.replace(/_/g, ' ')}
+                      </legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {options.map((option, optionIdx) => (
+                          <div key={option.value} className="flex items-center">
+                            <input
+                              id={`mobile-${filterType}-${optionIdx}`}
+                              name={`${filterType}[]`}
+                              defaultValue={option.value}
+                              type="checkbox"
+                              checked={activeFilters[filterType]?.includes(option.value) || false}
+                              onChange={() => handleFilterChange(filterType, option.value)}
+                              className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
+                            />
+                            <label
+                              htmlFor={`mobile-${filterType}-${optionIdx}`}
+                              className="ml-2 text-sm text-gray-400"
+                            >
+                              {option.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </fieldset>
                   ))}
+                  {activeFilterCount > 0 && (
+                    <button 
+                      type="button" 
+                      className="w-full py-2 text-sm text-center text-gray-400 hover:text-gray-300 border border-gray-600 rounded-lg"
+                      onClick={clearAllFilters}
+                    >
+                      Clear All Filters
+                    </button>
+                  )}
                 </div>
-              </MenuItems>
-            </Menu>
-          </div>
-        </div>
+              </DisclosurePanel>
+            </>
+          )}
+        </Disclosure>
       )}
 
       {/* Filters Section - Desktop */}
       {!isMobile && (
         <Disclosure as="section" className="border-b border-gray-700 bg-[#222629] rounded-2xl m-4">
-          <h2 className="sr-only">Filters</h2>
-          <div className="relative py-4">
-            <div className="mx-auto flex max-w-7xl justify-between items-center px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center">
-                <DisclosureButton className="group flex items-center font-medium text-gray-300">
-                  <FunnelIcon
-                    aria-hidden="true"
-                    className="mr-2 h-5 w-5 flex-none text-gray-400 group-hover:text-gray-300"
-                  />
-                  {activeFilterCount} Filter{activeFilterCount !== 1 ? 's' : ''}
-                </DisclosureButton>
-                {activeFilterCount > 0 && (
-                  <button 
-                    type="button" 
-                    className="ml-4 text-sm text-gray-400 hover:text-gray-300"
-                    onClick={clearAllFilters}
-                  >
-                    Clear all
-                  </button>
-                )}
+          {({ open }) => (
+            <>
+              <h2 className="sr-only">Filters</h2>
+              <div className="relative py-4">
+                <div className="mx-auto flex max-w-7xl justify-between items-center px-4 sm:px-6 lg:px-8">
+                  <div className="flex items-center">
+                    <DisclosureButton className="group flex items-center font-medium text-gray-300">
+                      <FunnelIcon
+                        aria-hidden="true"
+                        className="mr-2 h-5 w-5 flex-none text-gray-400 group-hover:text-gray-300"
+                      />
+                      {activeFilterCount} Filter{activeFilterCount !== 1 ? 's' : ''}
+                    </DisclosureButton>
+                    {activeFilterCount > 0 && (
+                      <button 
+                        type="button" 
+                        className="ml-4 text-sm text-gray-400 hover:text-gray-300"
+                        onClick={clearAllFilters}
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  
+                  <Menu as="div" className="relative inline-block">
+                    <div className="flex">
+                      <MenuButton className="group inline-flex justify-center text-sm font-medium text-gray-300 hover:text-white">
+                        Sort by
+                        <ChevronDownIcon
+                          aria-hidden="true"
+                          className="-mr-1 ml-1 h-5 w-5 shrink-0 text-gray-400 group-hover:text-gray-300"
+                        />
+                      </MenuButton>
+                    </div>
+
+                    <MenuItems className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-gray-800 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <div className="py-1">
+                        {sortOptions.map((option) => (
+                          <MenuItem key={option.value}>
+                            {({ focus }) => (
+                              <button
+                                onClick={() => setSortBy(option.value)}
+                                className={classNames(
+                                  option.value === sortBy ? 'font-medium text-white' : 'text-gray-400',
+                                  focus ? 'bg-gray-700' : '',
+                                  'block w-full px-4 py-2 text-left text-sm'
+                                )}
+                              >
+                                {option.name}
+                              </button>
+                            )}
+                          </MenuItem>
+                        ))}
+                      </div>
+                    </MenuItems>
+                  </Menu>
+                </div>
               </div>
               
-              <Menu as="div" className="relative inline-block">
-                <div className="flex">
-                  <MenuButton className="group inline-flex justify-center text-sm font-medium text-gray-300 hover:text-white">
-                    Sort by
-                    <ChevronDownIcon
-                      aria-hidden="true"
-                      className="-mr-1 ml-1 h-5 w-5 shrink-0 text-gray-400 group-hover:text-gray-300"
-                    />
-                  </MenuButton>
-                </div>
-
-                <MenuItems className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-gray-800 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
-                  <div className="py-1">
-                    {sortOptions.map((option) => (
-                      <MenuItem key={option.value}>
-                        {({ focus }) => (
-                          <button
-                            onClick={() => setSortBy(option.value)}
-                            className={classNames(
-                              option.value === sortBy ? 'font-medium text-white' : 'text-gray-400',
-                              focus ? 'bg-gray-700' : '',
-                              'block w-full px-4 py-2 text-left text-sm'
-                            )}
-                          >
-                            {option.name}
-                          </button>
-                        )}
-                      </MenuItem>
-                    ))}
-                  </div>
-                </MenuItems>
-              </Menu>
-            </div>
-          </div>
-          
-          <DisclosurePanel className="border-t border-gray-700">
-            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-                {Object.entries(filters).map(([filterType, options]) => (
-                  <fieldset key={filterType}>
-                    <legend className="block font-medium text-gray-300 capitalize">
-                      {filterType === 'roiRange' ? 'ROI' : filterType.replace(/_/g, ' ')}
-                    </legend>
-                    <div className="space-y-4 pt-4">
-                      {options.map((option, optionIdx) => (
-                        <div key={option.value} className="flex items-center">
-                          <input
-                            id={`${filterType}-${optionIdx}`}
-                            name={`${filterType}[]`}
-                            defaultValue={option.value}
-                            type="checkbox"
-                            checked={activeFilters[filterType]?.includes(option.value) || false}
-                            onChange={() => handleFilterChange(filterType, option.value)}
-                            className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
-                          />
-                          <label
-                            htmlFor={`${filterType}-${optionIdx}`}
-                            className="ml-3 text-sm text-gray-400"
-                          >
-                            {option.label}
-                          </label>
+              <DisclosurePanel className="border-t border-gray-700">
+                <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
+                    {Object.entries(filters).map(([filterType, options]) => (
+                      <fieldset key={filterType}>
+                        <legend className="block font-medium text-gray-300 capitalize">
+                          {filterType === 'roiRange' ? 'ROI' : filterType.replace(/_/g, ' ')}
+                        </legend>
+                        <div className="space-y-4 pt-4">
+                          {options.map((option, optionIdx) => (
+                            <div key={option.value} className="flex items-center">
+                              <input
+                                id={`${filterType}-${optionIdx}`}
+                                name={`${filterType}[]`}
+                                defaultValue={option.value}
+                                type="checkbox"
+                                checked={activeFilters[filterType]?.includes(option.value) || false}
+                                onChange={() => handleFilterChange(filterType, option.value)}
+                                className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
+                              />
+                              <label
+                                htmlFor={`${filterType}-${optionIdx}`}
+                                className="ml-3 text-sm text-gray-400"
+                              >
+                                {option.label}
+                              </label>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </fieldset>
-                ))}
-              </div>
-            </div>
-          </DisclosurePanel>
-        </Disclosure>
-      )}
-
-      {/* Mobile Filter Panel */}
-      {isMobile && (
-        <Disclosure as="div" className="bg-[#222629] border-b border-gray-700">
-          <DisclosurePanel className="px-4 py-4">
-            <div className="space-y-6">
-              {Object.entries(filters).map(([filterType, options]) => (
-                <fieldset key={filterType}>
-                  <legend className="block font-medium text-gray-300 capitalize mb-3">
-                    {filterType === 'roiRange' ? 'ROI' : filterType.replace(/_/g, ' ')}
-                  </legend>
-                  <div className="grid grid-cols-2 gap-2">
-                    {options.map((option, optionIdx) => (
-                      <div key={option.value} className="flex items-center">
-                        <input
-                          id={`mobile-${filterType}-${optionIdx}`}
-                          name={`${filterType}[]`}
-                          defaultValue={option.value}
-                          type="checkbox"
-                          checked={activeFilters[filterType]?.includes(option.value) || false}
-                          onChange={() => handleFilterChange(filterType, option.value)}
-                          className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
-                        />
-                        <label
-                          htmlFor={`mobile-${filterType}-${optionIdx}`}
-                          className="ml-2 text-sm text-gray-400"
-                        >
-                          {option.label}
-                        </label>
-                      </div>
+                      </fieldset>
                     ))}
                   </div>
-                </fieldset>
-              ))}
-              {activeFilterCount > 0 && (
-                <button 
-                  type="button" 
-                  className="w-full py-2 text-sm text-center text-gray-400 hover:text-gray-300 border border-gray-600 rounded-lg"
-                  onClick={clearAllFilters}
-                >
-                  Clear All Filters
-                </button>
-              )}
-            </div>
-          </DisclosurePanel>
+                </div>
+              </DisclosurePanel>
+            </>
+          )}
         </Disclosure>
       )}
 

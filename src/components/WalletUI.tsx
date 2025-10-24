@@ -149,59 +149,68 @@ export default function WalletUI() {
     <div className="p-6">
       {/* Wallet Section */}
       <div className="bg-[#222629] p-3 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between">
-        <div className="flex flex-col space-y-6">
-          <div>
-            <select className="border rounded-lg px-3 py-1 text-gray-600 bg-white">
-              <option>{currency}</option>
-            </select>
-          </div>
+       <div className="flex flex-col space-y-6 sm:space-y-8 md:space-y-10 w-full max-w-xl mx-auto">
+  {/* Currency Selector */}
+  <div className="flex justify-start sm:justify-end">
+    <select className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <option>{currency}</option>
+    </select>
+  </div>
 
-          {/* Balance + toggle */}
-          <div className="flex items-center space-x-3">
-            <div className="text-4xl font-bold text-white">
-              {showBalance ? `${currency} ${totalBalance.toFixed(2)}` : "••••••"}
-            </div>
-            <button
-              onClick={() => setShowBalance(!showBalance)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-          </div>
+  {/* Balance + Toggle */}
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+    <div className="text-center sm:text-left">
+      <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white break-words">
+        {showBalance ? `${currency} ${totalBalance.toFixed(2)}` : "••••••"}
+      </div>
+      <div className="text-blue-400 text-sm sm:text-base mt-1">Total Balance</div>
+    </div>
 
-          <div className="text-blue-400 text-sm">Total Balance</div>
+    <button
+      onClick={() => setShowBalance(!showBalance)}
+      className="flex justify-center sm:justify-end text-gray-400 hover:text-white transition-colors"
+    >
+      {showBalance ? <EyeOff size={22} /> : <Eye size={22} />}
+    </button>
+  </div>
 
-          {/* Buttons */}
-          <div className="flex space-x-2 mt-4">
-            <button
-              onClick={() => setIsDepositModalOpen(true)}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-colors"
-            >
-              <ArrowDownCircle size={20} />
-              <span>Deposit</span>
-            </button>
-            <button
-              onClick={() => setIsWithdrawModalOpen(true)}
-              disabled={available <= 0}
-              className={`flex items-center space-x-2 px-6 py-3 rounded-2xl transition-colors ${
-                available <= 0 
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                  : 'bg-gray-100 hover:bg-gray-200 text-blue-900'
-              }`}
-              title={available <= 0 ? 'Insufficient balance' : 'Withdraw funds'}
-            >
-              <ArrowUpCircle size={20} />
-              <span>Withdraw</span>
-            </button>
-            <button 
-              onClick={() => setIsHistoryModalOpen(true)}
-              className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-blue-900 px-6 py-3 rounded-2xl transition-colors"
-            >
-              <RefreshCcw size={20} />
-              <span>History</span>
-            </button>
-          </div>
+  {/* Buttons */}
+  <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 mt-4">
+    {/* Deposit */}
+    <button
+      onClick={() => setIsDepositModalOpen(true)}
+      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 sm:px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto"
+    >
+      <ArrowDownCircle size={20} />
+      <span className="font-medium text-sm sm:text-base">Deposit</span>
+    </button>
+
+    {/* Withdraw */}
+    <button
+      onClick={() => setIsWithdrawModalOpen(true)}
+      disabled={available <= 0}
+      className={`flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto ${
+        available <= 0 
+          ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+          : 'bg-gray-100 hover:bg-gray-200 text-blue-900'
+      }`}
+      title={available <= 0 ? 'Insufficient balance' : 'Withdraw funds'}
+    >
+      <ArrowUpCircle size={20} />
+      <span className="font-medium text-sm sm:text-base">Withdraw</span>
+    </button>
+
+    {/* History */}
+    <button 
+      onClick={() => setIsHistoryModalOpen(true)}
+      className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-blue-900 px-5 sm:px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto"
+    >
+      <RefreshCcw size={20} />
+      <span className="font-medium text-sm sm:text-base">History</span>
+    </button>
+  </div>
         </div>
+
 
         {/* Balances */}
         <div className="flex flex-col space-y-4 mt-6 md:mt-0 md:w-1/3">

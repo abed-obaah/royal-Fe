@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -45,14 +45,28 @@ import { useNavigate } from "react-router-dom";
 // Create components for each section
 const HomeContent = ({ user }: { user: any }) => {
   const isVerified = !!user?.email_verified_at; // true if email_verified_at has a value
+   const [greeting, setGreeting] = useState("Hello");
+
+  useEffect(() => {
+    const currentHour = new Date().getHours();
+
+    if (currentHour < 12) {
+      setGreeting("Good Morning");
+    } else if (currentHour < 18) {
+      setGreeting("Good Afternoon");
+    } else {
+      setGreeting("Good Evening");
+    }
+  }, []);
 
   return (
     <div>
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-xl/7 font-bold text-[#ebecec] sm:truncate sm:text-2xl sm:tracking-tight">
-            Good Morning, {user?.name} ☀️
-          </h2>
+        {greeting}, {user?.name?.split(" ")[0]}{" "}
+        {greeting === "Good Morning" ? "☀️" : greeting === "Good Afternoon" ? "🌤️" : "🌙"}
+      </h2>
         </div>
         <div className="mt-4 flex md:mt-0 md:ml-4">
           <span
@@ -87,7 +101,7 @@ const HomeContent = ({ user }: { user: any }) => {
 };
 
 // Suspension Modal Component
-const SuspensionModal = () => {
+const SuspensionModal = ({ onLogout }: { onLogout: () => void }) => {
   return (
     <Dialog static open={true} onClose={() => {}} className="relative z-[100]">
       <DialogBackdrop className="fixed inset-0 bg-red-900/80 backdrop-blur-sm" />
@@ -115,9 +129,17 @@ const SuspensionModal = () => {
 
             {/* Bottom Text */}
             <div className="mt-6 border-t border-red-200 pt-4">
-              <p className="text-xs text-red-600">
-                If you believe this is a mistake, please contact admin immediately.
+              <p className="text-xs text-red-600 mb-4">
+                If you believe this is a mistake, please contact admin immediately <strong> admin@royafi.com</strong>.
               </p>
+              
+              {/* Logout Button */}
+              <button
+                onClick={onLogout}
+                className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </DialogPanel>
@@ -189,7 +211,7 @@ export default function Example() {
     <>
       <div className="bg-[#31373e]">
         {/* Suspension Modal - appears when user is suspended */}
-        {isSuspended && <SuspensionModal />}
+        {isSuspended && <SuspensionModal onLogout={handleLogout} />}
         
         <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
           <DialogBackdrop

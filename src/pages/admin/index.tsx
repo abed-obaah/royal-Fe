@@ -53,15 +53,29 @@ import { useNavigate } from "react-router-dom";
 // Create components for each section
 const HomeContent = () => {
   const [selectedAlbum, setSelectedAlbum] = useState(null);
+  const [greeting, setGreeting] = useState("Hello");
+
+  useEffect(() => {
+    const currentHour = new Date().getHours();
+
+    if (currentHour < 12) {
+      setGreeting("Good Morning");
+    } else if (currentHour < 18) {
+      setGreeting("Good Afternoon");
+    } else {
+      setGreeting("Good Evening");
+    }
+  }, []);
 
   return (
     <div>
       <div className="md:flex md:items-center md:justify-between mb-6">
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl/7 font-bold text-[#ebecec] sm:truncate sm:text-2xl sm:tracking-tight">
-            Good Morning, Admin
-          </h2>
-        </div>
+      <h2 className="text-xl/7 font-bold text-[#ebecec] sm:truncate sm:text-2xl sm:tracking-tight">
+        {greeting}, Admin{" "}
+        {greeting === "Good Morning" ? "☀️" : greeting === "Good Afternoon" ? "🌤️" : "🌙"}
+      </h2>
+    </div>
       </div>
 
       {/* Show dashboard until album is clicked */}

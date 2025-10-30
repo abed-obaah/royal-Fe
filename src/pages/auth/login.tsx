@@ -9,6 +9,7 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../store";
 import { setCredentials } from "../../slices/userSlice";
 import api from "../../services/axios";
+import Login2FAModal from "../../components/Login2FAModal"; // You'll need to create this component
 
 interface LoginResponse {
   success: boolean;
@@ -26,6 +27,30 @@ interface LoginResponse {
   };
 }
 
+interface Login2FARequiredResponse {
+  message: string;
+  twofa_required: true;
+  temp_token: string;
+  user_id: number;
+}
+
+interface LoginSuccessResponse {
+  message: string;
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    created_at: string;
+    updated_at: string;
+    email_verified_at: string;
+  };
+  twofa_required: false;
+}
+
+type LoginResponse2FA = Login2FARequiredResponse | LoginSuccessResponse | LoginResponse;
+
 export default function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -35,6 +60,43 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [userId, setUserId] = useState<number | null>(null);
+
+  // Helper functions to detect response type
+  const is2FARequired = (response: any): response is Login2FARequiredResponse => {
+    return response && response.twofa_required === true && response.temp_token !== undefined;
+  };
+
+  const isLegacyResponse = (response: any): response is LoginResponse => {
+    return response && response.success === true && response.data && response.data.user !== undefined;
+  };
+
+  const isLoginSuccess = (response: any): response is LoginSuccessResponse => {
+    return response && response.twofa_required === false && response.token !== undefined && response.user !== undefined;
+  };
+
+  const handleLoginSuccess = (user: any, token: string) => {
+    if (!user || !token) {
+      console.error('Invalid user or token in handleLoginSuccess');
+      setError('Login failed: Invalid response data');
+      return;
+    }
+
+    try {
+      dispatch(setCredentials({ user, token }));
+
+      if (user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (dispatchError) {
+      console.error('Error dispatching credentials:', dispatchError);
+      setError('Login failed: Could not store session data');
+    }
+  };
 
   const handleContinue = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -55,32 +117,46 @@ export default function Login() {
       setLoading(true);
 
       const response = await api.post("/login", { email, password });
+      const responseData = response.data;
 
       if (process.env.NODE_ENV === 'development') {
         console.log("Full response:", response);
-        console.log("Response data:", response.data);
+        console.log("Response data:", responseData);
       }
 
-      const { user, token } = response.data;
-      
-      if (process.env.NODE_ENV === 'development') {
+      // Handle different response formats
+      if (is2FARequired(responseData)) {
+        // 2FA required - show 2FA modal
+        console.log('2FA required, showing modal');
+        setTempToken(responseData.temp_token);
+        setUserId(responseData.user_id);
+        setShow2FAModal(true);
+        return; // IMPORTANT: Return here to stop further execution
+      }
+
+      if (isLegacyResponse(responseData)) {
+        // Legacy format - extract user and token
+        console.log('Legacy login format');
+        const { user, token } = responseData.data;
         console.log("Token extracted:", token);
         console.log("User data:", user);
-        console.log("Is admin:", user.role);
-      }
-      
-      if (!token) {
-        setError("Invalid response from server.");
+        handleLoginSuccess(user, token);
         return;
       }
 
-      dispatch(setCredentials({ user, token }));
-
-      if (user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/dashboard");
+      if (isLoginSuccess(responseData)) {
+        // New format without 2FA
+        console.log('New login format without 2FA');
+        console.log("Token extracted:", responseData.token);
+        console.log("User data:", responseData.user);
+        handleLoginSuccess(responseData.user, responseData.token);
+        return;
       }
+
+      // If we get here, the response format is unexpected
+      console.error('Unexpected login response format:', responseData);
+      setError('Unexpected response from server. Please try again.');
+
     } catch (err: any) {
       if (process.env.NODE_ENV === 'development') {
         console.error("Login error:", err);
@@ -90,6 +166,11 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handle2FASuccess = (user: any, token: string) => {
+    handleLoginSuccess(user, token);
+    setShow2FAModal(false);
   };
 
   return (
@@ -221,6 +302,15 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* 2FA Modal */}
+      <Login2FAModal
+        isOpen={show2FAModal}
+        onClose={() => setShow2FAModal(false)}
+        onSuccess={handle2FASuccess}
+        tempToken={tempToken}
+        userId={userId || 0}
+      />
     </div>
   );
 }

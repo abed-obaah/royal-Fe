@@ -405,12 +405,17 @@ export default function Register() {
                   className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800 mt-0.5 flex-shrink-0"
                   disabled={loading}
                 />
-                <label className="text-xs sm:text-sm text-gray-400 leading-tight">
-                  I have read and agree to the{" "}
-                  <span className="text-[#009ad2] underline cursor-pointer">
-                    Terms of Service
-                  </span>
-                </label>
+               <label className="text-xs sm:text-sm text-gray-400 leading-tight">
+  I have read and agree to the{" "}
+  <a 
+    href="https://royafi.com/royafi_terms_and_policies.html" 
+    target="_blank" 
+    rel="noopener noreferrer"
+    className="text-[#009ad2] underline cursor-pointer"
+  >
+    Terms of Service
+  </a>
+</label>
               </div>
 
               {/* Error Message */}

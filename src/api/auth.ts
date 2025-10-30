@@ -29,7 +29,8 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface LoginResponse {
+// Legacy Login Response (for backward compatibility)
+export interface LegacyLoginResponse {
   success: boolean;
   data: {
     user: {
@@ -45,8 +46,103 @@ export interface LoginResponse {
   };
 }
 
-export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
-  const response = await api.post<LoginResponse>("login", credentials);
+// New 2FA Login Responses
+export interface Login2FARequiredResponse {
+  message: string;
+  twofa_required: true;
+  temp_token: string;
+  user_id: number;
+}
+
+export interface LoginSuccessResponse {
+  message: string;
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    created_at: string;
+    updated_at: string;
+    email_verified_at: string | null;
+    twofa_enabled?: boolean;
+  };
+  twofa_required: false;
+}
+
+export type LoginResponse2FA = Login2FARequiredResponse | LoginSuccessResponse;
+
+// Unified login function that handles both response formats
+export const login = async (credentials: LoginRequest): Promise<LoginResponse2FA | LegacyLoginResponse> => {
+  const response = await api.post("login", credentials);
+  return response.data;
+};
+
+// Helper function to check if response is 2FA required
+export const is2FARequired = (response: any): response is Login2FARequiredResponse => {
+  return response && response.twofa_required === true;
+};
+
+// Helper function to check if response is legacy format
+export const isLegacyResponse = (response: any): response is LegacyLoginResponse => {
+  return response && response.success !== undefined && response.data !== undefined;
+};
+
+// Helper function to check if response is successful login (new format)
+export const isLoginSuccess = (response: any): response is LoginSuccessResponse => {
+  return response && response.twofa_required === false && response.token !== undefined;
+};
+
+// -------------------- 2FA Verification --------------------
+export interface Verify2FALoginRequest {
+  temp_token: string;
+  code: string;
+}
+
+export interface Verify2FALoginResponse {
+  message: string;
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    created_at: string;
+    updated_at: string;
+    email_verified_at: string | null;
+    twofa_enabled?: boolean;
+  };
+}
+
+export const verify2FALogin = async (data: Verify2FALoginRequest): Promise<Verify2FALoginResponse> => {
+  const response = await api.post<Verify2FALoginResponse>("verify-2fa-login", data);
+  return response.data;
+};
+
+// -------------------- Backup Code Login --------------------
+export interface VerifyBackupCodeRequest {
+  temp_token: string;
+  backup_code: string;
+}
+
+export interface VerifyBackupCodeResponse {
+  message: string;
+  token: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    created_at: string;
+    updated_at: string;
+    email_verified_at: string | null;
+    twofa_enabled?: boolean;
+  };
+  remaining_backup_codes: number;
+}
+
+export const verifyBackupCodeLogin = async (data: VerifyBackupCodeRequest): Promise<VerifyBackupCodeResponse> => {
+  const response = await api.post<VerifyBackupCodeResponse>("verify-backup-code-login", data);
   return response.data;
 };
 

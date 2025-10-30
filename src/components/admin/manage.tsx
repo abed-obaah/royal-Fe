@@ -767,7 +767,7 @@ export default function UserManagementExtended() {
                     >
                       <option value="active">Active</option>
                       <option value="suspended">Suspended</option>
-                      <option value="inactive">Inactive</option>
+                      {/* <option value="inactive">Inactive</option> */}
                     </select>
                   </div>
                 </div>

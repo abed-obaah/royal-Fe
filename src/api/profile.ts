@@ -28,6 +28,8 @@ export interface Verification {
   updated_at: string;
 }
 
+
+
 export interface TwoFactorSetup {
   secret: string;
   qr_code_url: string;
@@ -71,6 +73,26 @@ export interface Disable2FARequest {
 }
 
 export interface DeleteAccountRequest {
+  password: string;
+}
+
+interface TwoFactorSetup {
+  secret: string;
+  qr_code_url: string;
+  qr_code_image_url: string;
+  message: string;
+}
+
+interface Enable2FAResponse {
+  message: string;
+  backup_codes?: string[]; // New field
+}
+
+interface Enable2FARequest {
+  code: string;
+}
+
+interface Disable2FARequest {
   password: string;
 }
 

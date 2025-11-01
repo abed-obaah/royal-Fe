@@ -6,11 +6,12 @@ import {
   ArrowDownCircle, 
   ArrowUpCircle, 
   RefreshCcw,
-  Filter,
-  Download,
   Search,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users,
+  DollarSign,
+  TrendingUp
 } from "lucide-react";
 import CryptoPaymentModal from "@/components/CryptoPaymentModal";
 import WithdrawModal from "@/components/WithdrawModal";
@@ -21,6 +22,7 @@ import {
   getWalletAddress 
 } from "../../slices/transactionSlice";
 import { RootState, AppDispatch } from "../../store";
+import { adminApi, ReferredUser } from "../../api/admin";
 
 interface WalletData {
   id: number;
@@ -63,6 +65,9 @@ export default function WalletUI() {
     (state: RootState) => state.transactions
   );
   
+  const user = useSelector((state: RootState) => state.user.user);
+  const isAdmin = user?.role === 'admin';
+  
   const [showBalance, setShowBalance] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWithdrawOpen, setWithdrawOpen] = useState(false);
@@ -76,6 +81,21 @@ export default function WalletUI() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Admin referral state
+  const [referredUsers, setReferredUsers] = useState<ReferredUser[]>([]);
+  const [referralStats, setReferralStats] = useState<any>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralCurrentPage, setReferralCurrentPage] = useState(1);
+  const [referralTotalPages, setReferralTotalPages] = useState(1);
+  const [referralSearch, setReferralSearch] = useState("");
+
+  // Helper function to safely convert values to numbers and format
+  const safeToFixed = (value: any, decimals = 2): string => {
+    if (value === null || value === undefined) return (0).toFixed(decimals);
+    const num = parseFloat(value);
+    return (isNaN(num) ? 0 : num).toFixed(decimals);
+  };
+
   useEffect(() => {
     const fetchWalletData = async () => {
       try {
@@ -85,6 +105,11 @@ export default function WalletUI() {
         
         // Fetch transaction history
         await dispatch(fetchUserTransactions());
+
+        // If admin, fetch referral data
+        if (isAdmin) {
+          await fetchReferredUsers();
+        }
       } catch (err) {
         console.error("Failed to fetch wallet data:", err);
       } finally {
@@ -93,7 +118,29 @@ export default function WalletUI() {
     };
     
     fetchWalletData();
-  }, [dispatch]);
+  }, [dispatch, isAdmin]);
+
+  const fetchReferredUsers = async (page = 1, search = "") => {
+    if (!isAdmin) return;
+    
+    try {
+      setReferralLoading(true);
+      const params: any = { page };
+      if (search) {
+        params.referred_search = search;
+      }
+      
+      const response = await adminApi.getAllReferredUsers(params);
+      setReferredUsers(response.referred_users.data);
+      setReferralStats(response);
+      setReferralTotalPages(response.referred_users.last_page);
+      setReferralCurrentPage(page);
+    } catch (err) {
+      console.error("Failed to fetch referred users:", err);
+    } finally {
+      setReferralLoading(false);
+    }
+  };
 
   const handleDeposit = async (amount: number, network: string, proof: string) => {
     try {
@@ -158,6 +205,10 @@ export default function WalletUI() {
       const data: WalletApiResponse = await getWallet();
       setWallet(data.wallet);
       await dispatch(fetchUserTransactions());
+      
+      if (isAdmin) {
+        await fetchReferredUsers();
+      }
     } catch (error) {
       console.error('Refresh failed:', error);
     } finally {
@@ -165,7 +216,7 @@ export default function WalletUI() {
     }
   };
 
-  // Filter and search transactions - use userTransactions from Redux
+  // Filter and search transactions
   const filteredTransactions = React.useMemo(() => {
     if (!userTransactions) return [];
     
@@ -227,67 +278,66 @@ export default function WalletUI() {
     <div className="px-2 md:p-6 max-w-7xl mx-auto">
       {/* Wallet Section */}
       <div className="bg-[#222629] p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between mb-6">
-       <div className="flex flex-col space-y-6 w-full max-w-md mx-auto px-4 sm:px-0">
-  {/* Currency Selector */}
-  <div className="w-full">
-    <div className="w-full border rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <p>{currency}</p>
-    </div>
-  </div>
+        <div className="flex flex-col space-y-6 w-full max-w-md mx-auto px-4 sm:px-0">
+          {/* Currency Selector */}
+          <div className="w-full">
+            <div className="w-full border rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <p>{currency}</p>
+            </div>
+          </div>
 
-  {/* Balance + toggle */}
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-    <div className="flex items-center space-x-3">
-      <div className="text-3xl sm:text-4xl font-bold text-white break-words">
-        {showBalance ? `${currency} ${totalBalance.toFixed(2)}` : "••••••"}
-      </div>
-      <button
-        onClick={() => setShowBalance(!showBalance)}
-        className="text-gray-400 hover:text-white transition-colors"
-      >
-        {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
-      </button>
-    </div>
-    <div className="text-blue-400 text-sm text-left sm:text-right">Total Balance</div>
-  </div>
+          {/* Balance + toggle */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="text-3xl sm:text-4xl font-bold text-white break-words">
+                {showBalance ? `${currency} ${totalBalance.toFixed(2)}` : "••••••"}
+              </div>
+              <button
+                onClick={() => setShowBalance(!showBalance)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            <div className="text-blue-400 text-sm text-left sm:text-right">Total Balance</div>
+          </div>
 
-  {/* Buttons */}
-  <div className="flex flex-col sm:flex-row sm:space-x-3 space-y-3 sm:space-y-0 mt-4 w-full">
-    {/* Deposit */}
-    <button
-      onClick={() => setIsModalOpen(true)}
-      className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto"
-    >
-      <ArrowDownCircle size={20} />
-      <span>Deposit</span>
-    </button>
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row sm:space-x-3 space-y-3 sm:space-y-0 mt-4 w-full">
+            {/* Deposit */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto"
+            >
+              <ArrowDownCircle size={20} />
+              <span>Deposit</span>
+            </button>
 
-    {/* Withdraw */}
-    <button
-      onClick={() => setWithdrawOpen(true)}
-      disabled={available <= 0}
-      className={`flex items-center justify-center space-x-2 px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto ${
-        available <= 0 
-          ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-          : 'bg-gray-100 hover:bg-gray-200 text-blue-900'
-      }`}
-    >
-      <ArrowUpCircle size={20} />
-      <span>Withdraw</span>
-    </button>
+            {/* Withdraw */}
+            <button
+              onClick={() => setWithdrawOpen(true)}
+              disabled={available <= 0}
+              className={`flex items-center justify-center space-x-2 px-6 py-3 rounded-2xl transition-colors w-full sm:w-auto ${
+                available <= 0 
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                  : 'bg-gray-100 hover:bg-gray-200 text-blue-900'
+              }`}
+            >
+              <ArrowUpCircle size={20} />
+              <span>Withdraw</span>
+            </button>
 
-    {/* Refresh */}
-    <button 
-      onClick={handleRefresh}
-      disabled={loading}
-      className="flex items-center justify-center space-x-2 bg-gray-100 hover:bg-gray-200 text-blue-900 px-6 py-3 rounded-2xl transition-colors disabled:opacity-50 w-full sm:w-auto"
-    >
-      <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
-      <span>Refresh</span>
-    </button>
-  </div>
-</div>
-
+            {/* Refresh */}
+            <button 
+              onClick={handleRefresh}
+              disabled={loading}
+              className="flex items-center justify-center space-x-2 bg-gray-100 hover:bg-gray-200 text-blue-900 px-6 py-3 rounded-2xl transition-colors disabled:opacity-50 w-full sm:w-auto"
+            >
+              <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
 
         {/* Balances */}
         <div className="flex flex-col space-y-4 mt-6 md:mt-0 md:w-1/3">
@@ -317,7 +367,208 @@ export default function WalletUI() {
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Admin Referral Stats */}
+      {isAdmin && referralStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-[#222629] p-4 rounded-xl">
+            <div className="flex items-center space-x-3">
+              <Users className="text-blue-400" size={24} />
+              <div>
+                <div className="text-gray-400 text-sm">Total Referred</div>
+                <div className="text-white text-xl font-bold">{referralStats.statistics?.total_referred_users || 0}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#222629] p-4 rounded-xl">
+            <div className="flex items-center space-x-3">
+              <TrendingUp className="text-green-400" size={24} />
+              <div>
+                <div className="text-gray-400 text-sm">Active Investors</div>
+                <div className="text-white text-xl font-bold">{referralStats.statistics?.active_investors || 0}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#222629] p-4 rounded-xl">
+            <div className="flex items-center space-x-3">
+              <DollarSign className="text-green-400" size={24} />
+              <div>
+                <div className="text-gray-400 text-sm">Commission Paid</div>
+                <div className="text-green-400 text-xl font-bold">
+                  ${safeToFixed(referralStats.statistics?.total_commission_paid)}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#222629] p-4 rounded-xl">
+            <div className="flex items-center space-x-3">
+              <DollarSign className="text-yellow-400" size={24} />
+              <div>
+                <div className="text-gray-400 text-sm">Commission Pending</div>
+                <div className="text-yellow-400 text-xl font-bold">
+                  ${safeToFixed(referralStats.statistics?.total_commission_pending)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Referral Table */}
+      {isAdmin && (
+        <div className="bg-[#222629] rounded-2xl shadow-sm overflow-hidden mb-6">
+          {/* Table Header */}
+          <div className="p-6 border-b border-gray-700">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <h2 className="text-xl font-bold text-white">Referral Management</h2>
+              
+              <div className="flex flex-col md:flex-row gap-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search referred users..."
+                    value={referralSearch}
+                    onChange={(e) => setReferralSearch(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        fetchReferredUsers(1, referralSearch);
+                      }
+                    }}
+                    className="pl-10 pr-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none w-full md:w-64"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Table Content */}
+          <div className="overflow-x-auto">
+            {referralLoading ? (
+              <div className="p-12 text-center text-gray-400">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                Loading referral data...
+              </div>
+            ) : referredUsers.length === 0 ? (
+              <div className="p-12 text-center text-gray-400">
+                <p className="text-lg mb-2">No referred users found</p>
+                <p className="text-sm">Users will appear here when they sign up using referral codes</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-[#2a2e32] border-b border-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Referred User
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Referrer
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Investment
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Commission
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Joined
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {referredUsers.map((user: ReferredUser) => (
+                    <tr key={user.id} className="hover:bg-[#2a2e32] transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-white">{user.name}</div>
+                          <div className="text-sm text-gray-400">{user.email}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {user.referrer ? (
+                          <div>
+                            <div className="text-sm font-medium text-white">{user.referrer.name}</div>
+                            <div className="text-sm text-gray-400">{user.referrer.email}</div>
+                            <div className="text-xs text-blue-400">{user.referrer.referral_code}</div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">No referrer</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-white">
+                          ${safeToFixed(user.investment_amount)}
+                        </div>
+                        <div className={`text-xs ${user.has_invested ? 'text-green-400' : 'text-gray-400'}`}>
+                          {user.has_invested ? 'Invested' : 'Not invested'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-green-400">
+                          ${safeToFixed(user.earnings.total)}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Paid: ${safeToFixed(user.earnings.paid)} | Pending: ${safeToFixed(user.earnings.pending)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${
+                          user.status === 'active_investor' 
+                            ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                            : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                        }`}>
+                          {user.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                        {new Date(user.joined_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {referredUsers.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Page {referralCurrentPage} of {referralTotalPages}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    const newPage = Math.max(1, referralCurrentPage - 1);
+                    setReferralCurrentPage(newPage);
+                    fetchReferredUsers(newPage, referralSearch);
+                  }}
+                  disabled={referralCurrentPage === 1}
+                  className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={() => {
+                    const newPage = Math.min(referralTotalPages, referralCurrentPage + 1);
+                    setReferralCurrentPage(newPage);
+                    fetchReferredUsers(newPage, referralSearch);
+                  }}
+                  disabled={referralCurrentPage === referralTotalPages}
+                  className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick Stats for Transactions */}
       {userTransactions && userTransactions.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-[#222629] p-4 rounded-xl">

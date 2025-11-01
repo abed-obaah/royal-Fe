@@ -368,21 +368,35 @@ export default function Example() {
                 <div aria-hidden="true" className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" />
                 <Menu as="div" className="relative">
                   <MenuButton className="relative flex items-center">
-                    <span className="absolute -inset-1.5" />
-                    <span className="sr-only">Open user menu</span>
-                    <img
-                      alt=""
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                      className="size-8 rounded-full bg-gray-50 outline -outline-offset-1 outline-black/5"
-                    />
-                    <span className="hidden lg:flex lg:items-center">
-                      <span aria-hidden="true" className="ml-4 text-md/6 font-semibold text-white">
-                        {user?.name || 'User'}
-                        {/* {user?.referral_code || 'User'} */}
-                      </span>
-                      <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
-                    </span>
-                  </MenuButton>
+  <span className="absolute -inset-1.5" />
+  <span className="sr-only">Open user menu</span>
+  <div className="relative size-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm outline -outline-offset-1 outline-black/5">
+    {user?.name ? (
+      <>
+        <img
+          alt={user.name}
+          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+          className="size-8 rounded-full object-cover"
+          onError={(e) => {
+            // Hide the image and show initials when image fails to load
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white font-semibold text-sm">
+          {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+        </div>
+      </>
+    ) : (
+      <span>U</span>
+    )}
+  </div>
+  <span className="hidden lg:flex lg:items-center">
+    <span aria-hidden="true" className="ml-4 text-md/6 font-semibold text-white">
+      {user?.name || 'User'}
+    </span>
+    <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
+  </span>
+</MenuButton>
                   <MenuItems
                     transition
                     className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-[#31373e] py-2 shadow-lg outline-1 outline-gray-900/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"

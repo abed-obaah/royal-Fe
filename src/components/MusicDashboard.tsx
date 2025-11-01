@@ -618,221 +618,229 @@ export default function AlbumGrid() {
       )}
 
       {/* Asset Grid */}
-      <div className="p-3 sm:p-4">
-        {filteredAssets.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-lg">
-              {assets.length === 0 ? 'No assets available' : 'No assets match your filters'}
-            </div>
-            {assets.length === 0 && (
-              <p className="text-gray-500 mt-2">Check back later for new investment opportunities.</p>
-            )}
-            {activeFilterCount > 0 && (
-              <button 
-                onClick={clearAllFilters}
-                className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className={`grid gap-3 sm:gap-4 ${
-            isMobile 
-              ? 'grid-cols-1' 
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-          }`}>
-            {filteredAssets.map((asset, index) => {
-              const quantity = quantities[asset.id] || 1;
-              const totalCost = (asset.price * quantity).toFixed(2);
-              const canBuy = asset.available_shares > 0;
-              const imageSrc = getImageSrc(asset);
-              const hasImageError = imageErrors[asset.id];
-              const isTitleExpanded = expandedTitles[asset.id];
-              const displayTitle = isTitleExpanded 
-                ? asset.title 
-                : formatAssetTitle(asset.title, isMobile);
-              const displayArtist = formatArtistName(asset.artist, isMobile);
-              const shouldShowExpand = asset.title && asset.title.length > (isMobile ? 20 : 28);
+    <div className="p-3 sm:p-4">
+  {filteredAssets.length === 0 ? (
+    <div className="text-center py-12">
+      <div className="text-gray-400 text-lg">
+        {assets.length === 0 ? 'No assets available' : 'No assets match your filters'}
+      </div>
+      {assets.length === 0 && (
+        <p className="text-gray-500 mt-2">Check back later for new investment opportunities.</p>
+      )}
+      {activeFilterCount > 0 && (
+        <button 
+          onClick={clearAllFilters}
+          className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+        >
+          Clear Filters
+        </button>
+      )}
+    </div>
+  ) : (
+    <div className={`grid gap-3 sm:gap-4 ${
+      isMobile 
+        ? 'grid-cols-1' 
+        : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+    }`}>
+      {filteredAssets.map((asset, index) => {
+        const quantity = quantities[asset.id] || 1;
+        const totalCost = (asset.price * quantity).toFixed(2);
+        const canBuy = asset.available_shares > 0;
+        const imageSrc = getImageSrc(asset);
+        const hasImageError = imageErrors[asset.id];
+        const isTitleExpanded = expandedTitles[asset.id];
+        const displayTitle = isTitleExpanded 
+          ? asset.title 
+          : formatAssetTitle(asset.title, isMobile);
+        const displayArtist = formatArtistName(asset.artist, isMobile);
+        const shouldShowExpand = asset.title && asset.title.length > (isMobile ? 20 : 28);
+        
+        return (
+          <div
+            key={asset.id}
+            className="bg-[#222629] rounded-lg p-3 hover:bg-gray-750 transition-all duration-300 hover:shadow-md group border border-gray-700"
+          >
+            <div className="flex mb-3">
+              <div className="relative overflow-hidden rounded-md flex-shrink-0">
+                <img
+                  src={hasImageError ? "" : imageSrc}
+                  alt={asset.title}
+                  className={`rounded-md object-cover group-hover:scale-105 transition-transform duration-500 ${
+                    isMobile ? 'w-14 h-14' : 'w-16 h-16'
+                  }`}
+                  onError={() => handleImageError(asset.id)}
+                />
+                {/* Responsive Price Badge */}
+                <div className={`
+                  absolute bg-gray-900/90 text-white font-medium rounded
+                  ${isMobile 
+                    ? 'bottom-0.5 right-0.5 py-0.5 px-1 text-[10px] min-w-[32px] text-center' 
+                    : 'bottom-1 right-1 py-0.5 px-1.5 text-xs min-w-[40px] text-center'
+                  }
+                  backdrop-blur-sm border border-gray-700/50
+                `}>
+                  ${asset.price}
+                </div>
+              </div>
               
-              return (
-                <div
-                  key={asset.id}
-                  className="bg-[#222629] rounded-lg p-3 hover:bg-gray-750 transition-all duration-300 hover:shadow-md group border border-gray-700"
-                >
-                  <div className="flex mb-3">
-                    <div className="relative overflow-hidden rounded-md flex-shrink-0">
-                      <img
-                        src={hasImageError ? "https://via.placeholder.com/150" : imageSrc}
-                        alt={asset.title}
-                        className={`rounded-md object-cover group-hover:scale-105 transition-transform duration-500 ${
-                          isMobile ? 'w-14 h-14' : 'w-16 h-16'
-                        }`}
-                        onError={() => handleImageError(asset.id)}
-                      />
-                      <div className="absolute bottom-1 right-1 bg-gray-900/90 text-white font-medium py-0.5 px-1.5 rounded text-xs">
-                        ${asset.price}
-                      </div>
-                    </div>
-                    
-                    <div className={`flex-grow min-w-0 ${isMobile ? 'ml-2' : 'ml-3'}`}>
-                      {/* Title with expandable functionality */}
-                      <div className="flex items-start justify-between group">
-                        <h3 
-                          className={`text-white font-medium ${
-                            isMobile ? 'text-sm' : 'text-sm'
-                          } break-words leading-tight cursor-pointer hover:text-blue-300 transition-colors`}
-                          onClick={(e) => shouldShowExpand && toggleTitleExpansion(asset.id, e)}
-                          title={asset.title}
-                        >
-                          {displayTitle}
-                        </h3>
-                        {shouldShowExpand && (
-                          <button
-                            onClick={(e) => toggleTitleExpansion(asset.id, e)}
-                            className="ml-1 p-0.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
-                            title={isTitleExpanded ? "Show less" : "Show full title"}
-                          >
-                            <svg 
-                              className={`w-3 h-3 transform transition-transform ${
-                                isTitleExpanded ? 'rotate-180' : ''
-                              }`}
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                      
-                      {/* Artist name */}
-                      <p 
-                        className="text-gray-400 text-xs mt-1 truncate"
-                        title={asset.artist || 'Various Artists'}
-                      >
-                        {displayArtist}
-                      </p>
-                      
-                      <div className="flex items-center mt-1.5 flex-wrap gap-1">
-                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getRiskColor(asset.risk_rating)} bg-gray-700/50`}>
-                          {asset.risk_rating || 'Medium'}
-                        </span>
-                        <span className="text-xs text-gray-400 bg-gray-700/30 px-1.5 py-0.5 rounded-full capitalize">
-                          {asset.type}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Preview Button */}
-                    <button
-                      onClick={() => handlePreviewClick(asset)}
-                      className={`p-1 text-gray-400 hover:text-white transition-colors flex-shrink-0 ${
-                        isMobile ? 'ml-1' : 'ml-2'
-                      }`}
-                      title="Preview Asset"
-                    >
-                      <FaInfoCircle size={isMobile ? 14 : 16} />
-                    </button>
-                  </div>
-                  
-                  <div className={`grid gap-2 mb-3 ${
-                    isMobile ? 'grid-cols-2' : 'grid-cols-2'
-                  }`}>
-                    <div className="bg-gray-700/30 p-2 rounded-md">
-                      <p className="text-gray-400 text-xs mb-0.5">ROI Range</p>
-                      <p className="text-white font-medium text-sm">
-                        {asset.expected_roi_range || '10-20%'}
-                      </p>
-                    </div>
-                    
-                    <div className="bg-gray-700/30 p-2 rounded-md">
-                      <p className="text-gray-400 text-xs mb-0.5">Entry Price</p>
-                      <p className="text-white font-medium text-sm">${asset.price}</p>
-                    </div>
-                    
-                    <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
-                      <p className="text-gray-400 text-xs mb-0.5">Current ROI</p>
-                      <p className={`font-medium text-sm ${getROIColor(asset.current_roi_percent)}`}>
-                        {asset.current_roi_percent > 0 ? '+' : ''}{asset.current_roi_percent || 0}%
-                      </p>
-                    </div>
-
-                    <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
-                      <p className="text-gray-400 text-xs mb-0.5">Available Shares</p>
-                      <p className="text-white font-medium text-sm">
-                        {asset.available_shares} / {asset.total_shares}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Quantity Selector */}
-                  {canBuy && (
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-400 text-xs">Quantity:</span>
-                        <span className="text-white text-xs font-medium">
-                          Total: ${totalCost}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between bg-gray-700/30 rounded-lg p-2">
-                        <button
-                          onClick={() => handleQuantityChange(asset.id, -1)}
-                          disabled={quantity <= 1}
-                          className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <FaMinus size={isMobile ? 10 : 12} />
-                        </button>
-                        <span className="text-white font-medium mx-2 text-sm">{quantity}</span>
-                        <button
-                          onClick={() => handleQuantityChange(asset.id, 1)}
-                          disabled={quantity >= asset.available_shares}
-                          className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <FaPlus size={isMobile ? 10 : 12} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <button
-                    onClick={() => handleBuyClick(asset, index)}
-                    disabled={portfolioLoading || buyLoading || !canBuy}
-                    className={`w-full relative overflow-hidden font-medium py-2 rounded-lg transition-all duration-300 text-xs ${
-                      clickedIndex === index 
-                        ? 'bg-green-500 text-white scale-95' 
-                        : !canBuy
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
+              <div className={`flex-grow min-w-0 ${isMobile ? 'ml-2' : 'ml-3'}`}>
+                {/* Title with expandable functionality */}
+                <div className="flex items-start justify-between group">
+                  <h3 
+                    className={`text-white font-medium ${
+                      isMobile ? 'text-sm' : 'text-sm'
+                    } break-words leading-tight cursor-pointer hover:text-blue-300 transition-colors`}
+                    onClick={(e) => shouldShowExpand && toggleTitleExpansion(asset.id, e)}
+                    title={asset.title}
                   >
-                    <span className={`flex items-center justify-center transition-all duration-200 ${clickedIndex === index ? 'scale-110' : ''}`}>
-                      {!canBuy ? (
-                        "Sold Out"
-                      ) : clickedIndex === index ? (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Purchased!
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          Invest ${totalCost}
-                        </>
-                      )}
-                    </span>
+                    {displayTitle}
+                  </h3>
+                  {shouldShowExpand && (
+                    <button
+                      onClick={(e) => toggleTitleExpansion(asset.id, e)}
+                      className="ml-1 p-0.5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                      title={isTitleExpanded ? "Show less" : "Show full title"}
+                    >
+                      <svg 
+                        className={`w-3 h-3 transform transition-transform ${
+                          isTitleExpanded ? 'rotate-180' : ''
+                        }`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                
+                {/* Artist name */}
+                <p 
+                  className="text-gray-400 text-xs mt-1 truncate"
+                  title={asset.artist || 'Various Artists'}
+                >
+                  {displayArtist}
+                </p>
+                
+                <div className="flex items-center mt-1.5 flex-wrap gap-1">
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${getRiskColor(asset.risk_rating)} bg-gray-700/50`}>
+                    {asset.risk_rating || 'Medium'}
+                  </span>
+                  <span className="text-xs text-gray-400 bg-gray-700/30 px-1.5 py-0.5 rounded-full capitalize">
+                    {asset.type}
+                  </span>
+                </div>
+              </div>
+
+              {/* Preview Button */}
+              <button
+                onClick={() => handlePreviewClick(asset)}
+                className={`p-1 text-gray-400 hover:text-white transition-colors flex-shrink-0 ${
+                  isMobile ? 'ml-1' : 'ml-2'
+                }`}
+                title="Preview Asset"
+              >
+                <FaInfoCircle size={isMobile ? 14 : 16} />
+              </button>
+            </div>
+            
+            <div className={`grid gap-2 mb-3 ${
+              isMobile ? 'grid-cols-2' : 'grid-cols-2'
+            }`}>
+              <div className="bg-gray-700/30 p-2 rounded-md">
+                <p className="text-gray-400 text-xs mb-0.5">ROI Range</p>
+                <p className="text-white font-medium text-sm">
+                  {asset.expected_roi_range || '10-20%'}
+                </p>
+              </div>
+              
+              <div className="bg-gray-700/30 p-2 rounded-md">
+                <p className="text-gray-400 text-xs mb-0.5">Entry Price</p>
+                <p className="text-white font-medium text-sm">${asset.price}</p>
+              </div>
+              
+              <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
+                <p className="text-gray-400 text-xs mb-0.5">Current ROI</p>
+                <p className={`font-medium text-sm ${getROIColor(asset.current_roi_percent)}`}>
+                  {asset.current_roi_percent > 0 ? '+' : ''}{asset.current_roi_percent || 0}%
+                </p>
+              </div>
+
+              <div className="bg-gray-700/30 p-2 rounded-md col-span-2">
+                <p className="text-gray-400 text-xs mb-0.5">Available Shares</p>
+                <p className="text-white font-medium text-sm">
+                  {asset.available_shares} / {asset.total_shares}
+                </p>
+              </div>
+            </div>
+            
+            {/* Quantity Selector */}
+            {canBuy && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-400 text-xs">Quantity:</span>
+                  <span className="text-white text-xs font-medium">
+                    Total: ${totalCost}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between bg-gray-700/30 rounded-lg p-2">
+                  <button
+                    onClick={() => handleQuantityChange(asset.id, -1)}
+                    disabled={quantity <= 1}
+                    className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FaMinus size={isMobile ? 10 : 12} />
+                  </button>
+                  <span className="text-white font-medium mx-2 text-sm">{quantity}</span>
+                  <button
+                    onClick={() => handleQuantityChange(asset.id, 1)}
+                    disabled={quantity >= asset.available_shares}
+                    className="p-1 text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FaPlus size={isMobile ? 10 : 12} />
                   </button>
                 </div>
-              );
-            })}
+              </div>
+            )}
+            
+            <button
+              onClick={() => handleBuyClick(asset, index)}
+              disabled={portfolioLoading || buyLoading || !canBuy}
+              className={`w-full relative overflow-hidden font-medium py-2 rounded-lg transition-all duration-300 text-xs ${
+                clickedIndex === index 
+                  ? 'bg-green-500 text-white scale-95' 
+                  : !canBuy
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              <span className={`flex items-center justify-center transition-all duration-200 ${clickedIndex === index ? 'scale-110' : ''}`}>
+                {!canBuy ? (
+                  "Sold Out"
+                ) : clickedIndex === index ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Purchased!
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Invest ${totalCost}
+                  </>
+                )}
+              </span>
+            </button>
           </div>
-        )}
-      </div>
+        );
+      })}
+    </div>
+  )}
+</div>
 
       {/* Asset Preview Modal */}
       <AssetPreviewModal

@@ -12,18 +12,22 @@ export interface Asset {
   genre?: string;
   price: number;
   expected_roi_percent?: number;
+  expected_roi_min?: number;
+  expected_roi_max?: number;
   current_roi_percent?: number;
   total_shares: number;
   available_shares: number;
   image_url?: string;
+  image_base64?: string;
   metadata?: any;
   status: 'active' | 'inactive';
   created_at?: string;
   updated_at?: string;
   song?: Song;
   basket?: Basket;
+  expected_roi_range?: string;
+  expected_roi_average?: number;
 }
-
 
 export interface AssetState {
   assets: Asset[];
@@ -37,6 +41,7 @@ export interface AssetState {
   };
   buyLoading: boolean;
 }
+
 export interface CreateAssetData {
   title: string;
   slug?: string;
@@ -47,6 +52,8 @@ export interface CreateAssetData {
   genre?: string;
   price: number;
   expected_roi_percent?: number;
+  expected_roi_min?: number;
+  expected_roi_max?: number;
   current_roi_percent?: number;
   total_shares: number;
   available_shares?: number;
@@ -66,6 +73,8 @@ export interface UpdateAssetData {
   genre?: string;
   price?: number;
   expected_roi_percent?: number;
+  expected_roi_min?: number;
+  expected_roi_max?: number;
   current_roi_percent?: number;
   total_shares?: number;
   available_shares?: number;

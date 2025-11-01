@@ -22,15 +22,30 @@ import {
   DollarSign,
   PieChart,
   BarChart3,
-  Menu
+  Menu,
+  Bell,
+  Send,
+  Users,
+  AlertTriangle,
+  CheckCircle,
+  Info
 } from "lucide-react";
-import { adminUsersApi, AdminUser, UserDetails, UserInvestment } from "../../api/adminUsers";
+import { 
+  adminUsersApi, 
+  AdminUser, 
+  UserDetails, 
+  UserInvestment,
+  adminNotificationsApi,
+  UserNotification,
+  SendNotificationRequest
+} from "../../api/adminUsers";
 
 export default function UserManagementExtended() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [userInvestments, setUserInvestments] = useState<UserInvestment[]>([]);
+  const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +70,18 @@ export default function UserManagementExtended() {
     target_user_id: "",
     reason: ""
   });
+  
+  // Notification state
+  const [notificationForm, setNotificationForm] = useState<SendNotificationRequest>({
+    title: "",
+    message: "",
+    type: "info",
+    priority: "normal",
+    user_type: "all"
+  });
+  const [notificationRecipients, setNotificationRecipients] = useState<"single" | "multiple" | "all">("single");
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
@@ -83,13 +110,13 @@ export default function UserManagementExtended() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Fetch all users for transfer dropdown
+  // Fetch all users for transfer dropdown and notifications
   const fetchAllUsers = async () => {
     try {
       const response = await adminUsersApi.getUsers({ per_page: 1000 });
       setAllUsers(response.users);
     } catch (err) {
-      console.error("Error fetching users for transfer:", err);
+      console.error("Error fetching users:", err);
     }
   };
 
@@ -117,6 +144,10 @@ export default function UserManagementExtended() {
       // Also fetch investments
       const investmentsResponse = await adminUsersApi.getUserInvestments(userId);
       setUserInvestments(investmentsResponse.investments);
+
+      // Fetch user notifications
+      const notificationsResponse = await adminNotificationsApi.getUserNotifications(userId);
+      setUserNotifications(notificationsResponse.notifications);
     } catch (err: any) {
       console.error("Error fetching user details:", err);
       setError("Failed to load user details");
@@ -501,6 +532,117 @@ export default function UserManagementExtended() {
     }
   };
 
+  // Send notification
+  const handleSendNotification = async () => {
+    try {
+      setActionLoading(true);
+      setError(null);
+
+      let response;
+      const notificationData: SendNotificationRequest = {
+        title: notificationForm.title,
+        message: notificationForm.message,
+        type: notificationForm.type,
+        priority: notificationForm.priority,
+        action_url: notificationForm.action_url
+      };
+
+      if (notificationRecipients === "single" && selectedUser) {
+        response = await adminNotificationsApi.sendToUser({
+          ...notificationData,
+          user_id: selectedUser.id
+        });
+      } else if (notificationRecipients === "multiple" && selectedUsers.length > 0) {
+        response = await adminNotificationsApi.sendToMultiple({
+          ...notificationData,
+          user_ids: selectedUsers
+        });
+      } else if (notificationRecipients === "all") {
+        response = await adminNotificationsApi.sendToAll({
+          ...notificationData,
+          user_type: notificationForm.user_type
+        });
+      } else {
+        setError("Please select recipients for the notification");
+        return;
+      }
+
+      // Reset form and close modal
+      setNotificationForm({
+        title: "",
+        message: "",
+        type: "info",
+        priority: "normal",
+        user_type: "all"
+      });
+      setSelectedUsers([]);
+      setModal(null);
+
+      // Show success message
+      setError(`Notification sent successfully! ${response.sent_count ? `Sent to ${response.sent_count} users` : ''}`);
+      
+      // Refresh notifications if sent to current user
+      if (selectedUser && notificationRecipients === "single") {
+        await fetchUserDetails(selectedUser.id);
+      }
+
+    } catch (err: any) {
+      setError("Failed to send notification");
+      console.error("Error sending notification:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllNotificationsAsRead = async (userId: number) => {
+    try {
+      setActionLoading(true);
+      const response = await adminNotificationsApi.markAllUserNotificationsAsRead(userId);
+      await fetchUserDetails(userId);
+      setError(`Marked ${response.marked_count} notifications as read`);
+    } catch (err: any) {
+      setError("Failed to mark notifications as read");
+      console.error("Error marking notifications as read:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete notification
+  const handleDeleteNotification = async (userId: number, notificationId: number) => {
+    try {
+      setActionLoading(true);
+      await adminNotificationsApi.deleteUserNotification(userId, notificationId);
+      await fetchUserDetails(userId);
+      setError("Notification deleted successfully");
+    } catch (err: any) {
+      setError("Failed to delete notification");
+      console.error("Error deleting notification:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Toggle user selection for multiple notifications
+  const toggleUserSelection = (userId: number) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  // Select all users for notifications
+  const selectAllUsers = () => {
+    setSelectedUsers(users.map(user => user.id));
+  };
+
+  // Clear all user selections for notifications
+  const clearAllUsers = () => {
+    setSelectedUsers([]);
+  };
+
   // Filter users based on search
   const filteredUsers = users.filter((user) => {
     if (!searchQuery) return true;
@@ -517,6 +659,22 @@ export default function UserManagementExtended() {
     fetchUsers();
     fetchAllUsers();
   }, []);
+
+  // Get notification type icon and color
+  const getNotificationTypeInfo = (type: string) => {
+    switch (type) {
+      case 'success':
+        return { icon: CheckCircle, color: 'text-green-400', bgColor: 'bg-green-900/20' };
+      case 'warning':
+        return { icon: AlertTriangle, color: 'text-yellow-400', bgColor: 'bg-yellow-900/20' };
+      case 'error':
+        return { icon: AlertCircle, color: 'text-red-400', bgColor: 'bg-red-900/20' };
+      case 'system':
+        return { icon: Info, color: 'text-blue-400', bgColor: 'bg-blue-900/20' };
+      default:
+        return { icon: Info, color: 'text-gray-400', bgColor: 'bg-gray-900/20' };
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#222629] text-white">
@@ -666,6 +824,24 @@ export default function UserManagementExtended() {
                         <Key className="w-4 h-4" />
                         Reset Password
                       </button>
+                      <button 
+                        onClick={() => { 
+                          setModal("sendNotification"); 
+                          setNotificationRecipients("single");
+                          setNotificationForm({
+                            title: "",
+                            message: "",
+                            type: "info",
+                            priority: "normal",
+                            user_type: "all"
+                          });
+                        }} 
+                        className="px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                        disabled={actionLoading}
+                      >
+                        <Bell className="w-4 h-4" />
+                        Send Notification
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -767,7 +943,6 @@ export default function UserManagementExtended() {
                     >
                       <option value="active">Active</option>
                       <option value="suspended">Suspended</option>
-                      {/* <option value="inactive">Inactive</option> */}
                     </select>
                   </div>
                 </div>
@@ -808,6 +983,109 @@ export default function UserManagementExtended() {
                     <div className="text-gray-400 text-sm mb-2">Total Balance</div>
                     <div className="text-lg font-semibold">${selectedUser.total_balance.toFixed(2)}</div>
                   </div>
+                </div>
+              </div>
+
+              {/* Notifications Section */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Bell className="w-5 h-5" />
+                    Notifications
+                    <span className="text-sm text-gray-400 font-normal ml-2">
+                      ({userNotifications.length})
+                    </span>
+                  </h3>
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <button 
+                      onClick={() => handleMarkAllNotificationsAsRead(selectedUser.id)}
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2 flex-1 sm:flex-none justify-center transition-colors"
+                      disabled={actionLoading || userNotifications.filter(n => !n.read_at).length === 0}
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      {actionLoading ? "..." : "Mark All Read"}
+                    </button>
+                    <button 
+                      onClick={() => { 
+                        setModal("sendNotification"); 
+                        setNotificationRecipients("single");
+                        setNotificationForm({
+                          title: "",
+                          message: "",
+                          type: "info",
+                          priority: "normal",
+                          user_type: "all"
+                        });
+                      }}
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm flex items-center gap-2 flex-1 sm:flex-none justify-center transition-colors"
+                      disabled={actionLoading}
+                    >
+                      <Send className="w-4 h-4" />
+                      Send Notification
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                  {userNotifications.length > 0 ? (
+                    <div className="space-y-3">
+                      {userNotifications.map((notification) => {
+                        const { icon: Icon, color, bgColor } = getNotificationTypeInfo(notification.type);
+                        return (
+                          <div key={notification.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-lg border ${bgColor} border-gray-700`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Icon className={`w-4 h-4 ${color}`} />
+                                <div className="font-medium text-sm sm:text-base truncate">
+                                  {notification.title}
+                                </div>
+                                {!notification.read_at && (
+                                  <span className="px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded-full">
+                                    New
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-300 mb-2">
+                                {notification.message}
+                              </div>
+                              <div className="flex flex-wrap gap-2 text-xs text-gray-400">
+                                <span className={`px-1.5 py-0.5 rounded ${bgColor}`}>
+                                  {notification.type}
+                                </span>
+                                <span className="px-1.5 py-0.5 bg-gray-800 rounded">
+                                  {notification.priority}
+                                </span>
+                                <span>
+                                  {new Date(notification.created_at).toLocaleDateString()}
+                                </span>
+                                {notification.read_at && (
+                                  <span className="text-green-400">
+                                    Read
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2 w-full sm:w-auto justify-end">
+                              <button 
+                                onClick={() => handleDeleteNotification(selectedUser.id, notification.id)}
+                                className="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm flex items-center gap-2 flex-1 sm:flex-none justify-center min-w-[80px] transition-colors"
+                                disabled={actionLoading}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-center py-8">
+                      <Bell className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <div>No notifications found</div>
+                      <div className="text-sm mt-1">This user hasn't received any notifications yet.</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -935,7 +1213,9 @@ export default function UserManagementExtended() {
       {/* Modals - Responsive */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-auto border border-gray-700">
+          <div className={`bg-gray-900 rounded-xl shadow-2xl w-full max-h-[90vh] overflow-auto border border-gray-700 ${
+            modal === "sendNotification" ? "max-w-2xl" : "max-w-md"
+          }`}>
             <div className="p-4 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-gray-900">
               <div className="text-lg font-semibold truncate">
                 {modal === "password" && "Set New Password"}
@@ -943,6 +1223,7 @@ export default function UserManagementExtended() {
                 {modal === "editProfile" && "Edit Profile"}
                 {modal === "editWallet" && "Edit Wallet Balances"}
                 {modal === "transferInvestment" && "Transfer Investment"}
+                {modal === "sendNotification" && "Send Notification"}
               </div>
               <button onClick={() => setModal(null)} className="p-2 rounded-lg hover:bg-gray-800 flex-shrink-0 transition-colors" disabled={actionLoading}>
                 <X className="w-5 h-5" />
@@ -950,6 +1231,201 @@ export default function UserManagementExtended() {
             </div>
 
             <div className="p-4 sm:p-6">
+              {/* SEND NOTIFICATION MODAL */}
+              {modal === "sendNotification" && (
+                <>
+                  <div className="space-y-6">
+                    {/* Recipient Selection */}
+                    <div>
+                      <label className="text-sm text-gray-400 block mb-3">Send To</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button
+                          onClick={() => setNotificationRecipients("single")}
+                          className={`p-3 rounded-lg border transition-colors ${
+                            notificationRecipients === "single" 
+                              ? "bg-blue-600 border-blue-500" 
+                              : "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                          }`}
+                        >
+                          <User className="w-5 h-5 mx-auto mb-1" />
+                          <div className="text-sm">Single User</div>
+                        </button>
+                        <button
+                          onClick={() => setNotificationRecipients("multiple")}
+                          className={`p-3 rounded-lg border transition-colors ${
+                            notificationRecipients === "multiple" 
+                              ? "bg-purple-600 border-purple-500" 
+                              : "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                          }`}
+                        >
+                          <Users className="w-5 h-5 mx-auto mb-1" />
+                          <div className="text-sm">Multiple Users</div>
+                        </button>
+                        <button
+                          onClick={() => setNotificationRecipients("all")}
+                          className={`p-3 rounded-lg border transition-colors ${
+                            notificationRecipients === "all" 
+                              ? "bg-green-600 border-green-500" 
+                              : "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                          }`}
+                        >
+                          <Send className="w-5 h-5 mx-auto mb-1" />
+                          <div className="text-sm">All Users</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* User Selection for Multiple */}
+                    {notificationRecipients === "multiple" && (
+                      <div>
+                        <label className="text-sm text-gray-400 block mb-3">
+                          Select Users ({selectedUsers.length} selected)
+                        </label>
+                        <div className="flex gap-2 mb-3">
+                          <button
+                            onClick={selectAllUsers}
+                            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm transition-colors"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            onClick={clearAllUsers}
+                            className="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm transition-colors"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-2">
+                          {users.map(user => (
+                            <div key={user.id} className="flex items-center gap-3 p-2 bg-gray-800 rounded-lg">
+                              <input
+                                type="checkbox"
+                                checked={selectedUsers.includes(user.id)}
+                                onChange={() => toggleUserSelection(user.id)}
+                                className="rounded border-gray-600 bg-gray-700"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{user.name}</div>
+                                <div className="text-xs text-gray-400 truncate">{user.email}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* User Type Selection for All */}
+                    {notificationRecipients === "all" && (
+                      <div>
+                        <label className="text-sm text-gray-400 block mb-2">User Type</label>
+                        <select
+                          value={notificationForm.user_type}
+                          onChange={(e) => setNotificationForm({...notificationForm, user_type: e.target.value as any})}
+                          className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors"
+                        >
+                          <option value="all">All Users</option>
+                          <option value="verified">Verified Users</option>
+                          <option value="unverified">Unverified Users</option>
+                          <option value="active">Active Users</option>
+                          <option value="suspended">Suspended Users</option>
+                          <option value="investors">Investors</option>
+                          <option value="non_investors">Non-Investors</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Notification Content */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm text-gray-400 block mb-2">Notification Title</label>
+                        <input
+                          value={notificationForm.title}
+                          onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})}
+                          placeholder="Enter notification title"
+                          className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors"
+                          disabled={actionLoading}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm text-gray-400 block mb-2">Message</label>
+                        <textarea
+                          value={notificationForm.message}
+                          onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})}
+                          placeholder="Enter notification message"
+                          rows={4}
+                          className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                          disabled={actionLoading}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-400 block mb-2">Type</label>
+                          <select
+                            value={notificationForm.type}
+                            onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value as any})}
+                            className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors"
+                            disabled={actionLoading}
+                          >
+                            <option value="info">Info</option>
+                            <option value="success">Success</option>
+                            <option value="warning">Warning</option>
+                            <option value="error">Error</option>
+                            <option value="system">System</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-gray-400 block mb-2">Priority</label>
+                          <select
+                            value={notificationForm.priority}
+                            onChange={(e) => setNotificationForm({...notificationForm, priority: e.target.value as any})}
+                            className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors"
+                            disabled={actionLoading}
+                          >
+                            <option value="low">Low</option>
+                            <option value="normal">Normal</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm text-gray-400 block mb-2">Action URL (Optional)</label>
+                        <input
+                          value={notificationForm.action_url || ""}
+                          onChange={(e) => setNotificationForm({...notificationForm, action_url: e.target.value})}
+                          placeholder="https://example.com/action"
+                          className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 focus:outline-none transition-colors"
+                          disabled={actionLoading}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2 mt-6">
+                    <button 
+                      onClick={() => setModal(null)} 
+                      className="px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex-1"
+                      disabled={actionLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleSendNotification}
+                      className="px-4 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg flex items-center gap-2 justify-center transition-colors flex-1"
+                      disabled={actionLoading || !notificationForm.title || !notificationForm.message || 
+                        (notificationRecipients === "multiple" && selectedUsers.length === 0)}
+                    >
+                      <Send className="w-4 h-4" />
+                      {actionLoading ? "Sending..." : "Send Notification"}
+                    </button>
+                  </div>
+                </>
+              )}
+
               {/* PASSWORD MODAL */}
               {modal === "password" && selectedUser && (
                 <>

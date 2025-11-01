@@ -39,6 +39,8 @@ export default function AssetsDashboard() {
     genre: "",
     price: "",
     expected_roi_percent: "",
+    expected_roi_min: "",
+    expected_roi_max: "",
     current_roi_percent: "",
     total_shares: "",
     available_shares: "",
@@ -75,6 +77,31 @@ export default function AssetsDashboard() {
     });
   };
 
+  // Helper function to display ROI in table
+  const getExpectedROIDisplay = (asset: Asset) => {
+    if (asset.expected_roi_min !== null && asset.expected_roi_max !== null && 
+        asset.expected_roi_min !== undefined && asset.expected_roi_max !== undefined) {
+      return `${asset.expected_roi_min}% - ${asset.expected_roi_max}%`;
+    }
+    return asset.expected_roi_percent ? `${asset.expected_roi_percent}%` : '-';
+  };
+
+  // Clear ROI fields when switching input methods
+  const clearROIFields = (useRange: boolean) => {
+    if (useRange) {
+      setFormData(prev => ({
+        ...prev,
+        expected_roi_percent: "",
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        expected_roi_min: "",
+        expected_roi_max: "",
+      }));
+    }
+  };
+
   // Open add/edit modal
   const openModal = (asset: Asset | null = null) => {
     if (asset) {
@@ -87,6 +114,8 @@ export default function AssetsDashboard() {
         genre: asset.genre || "",
         price: asset.price?.toString() || "",
         expected_roi_percent: asset.expected_roi_percent?.toString() || "",
+        expected_roi_min: asset.expected_roi_min?.toString() || "",
+        expected_roi_max: asset.expected_roi_max?.toString() || "",
         current_roi_percent: asset.current_roi_percent?.toString() || "",
         total_shares: asset.total_shares?.toString() || "",
         available_shares: asset.available_shares?.toString() || "",
@@ -104,6 +133,8 @@ export default function AssetsDashboard() {
         genre: "",
         price: "",
         expected_roi_percent: "",
+        expected_roi_min: "",
+        expected_roi_max: "",
         current_roi_percent: "",
         total_shares: "",
         available_shares: "",
@@ -131,7 +162,25 @@ export default function AssetsDashboard() {
       if (formData.slug) (payload as any).slug = formData.slug;
       if (formData.artist) (payload as any).artist = formData.artist;
       if (formData.genre) (payload as any).genre = formData.genre;
-      if (formData.expected_roi_percent) (payload as any).expected_roi_percent = parseFloat(formData.expected_roi_percent);
+      
+      // Handle ROI fields - either single percent or range
+      if (formData.expected_roi_percent) {
+        (payload as any).expected_roi_percent = parseFloat(formData.expected_roi_percent);
+        // Clear range if using single percent
+        (payload as any).expected_roi_min = null;
+        (payload as any).expected_roi_max = null;
+      } else if (formData.expected_roi_min && formData.expected_roi_max) {
+        (payload as any).expected_roi_min = parseFloat(formData.expected_roi_min);
+        (payload as any).expected_roi_max = parseFloat(formData.expected_roi_max);
+        // Clear single percent if using range
+        (payload as any).expected_roi_percent = null;
+      } else {
+        // If neither single ROI nor range is provided, clear all ROI fields
+        (payload as any).expected_roi_percent = null;
+        (payload as any).expected_roi_min = null;
+        (payload as any).expected_roi_max = null;
+      }
+      
       if (formData.current_roi_percent) (payload as any).current_roi_percent = parseFloat(formData.current_roi_percent);
       if (formData.available_shares) (payload as any).available_shares = parseInt(formData.available_shares);
 
@@ -142,6 +191,10 @@ export default function AssetsDashboard() {
       } else if (formData.type === 'basket' && formData.basket_id) {
         (payload as any).basket_id = parseInt(formData.basket_id);
         (payload as any).song_id = null;
+      } else {
+        // Clear both if type doesn't match
+        (payload as any).song_id = null;
+        (payload as any).basket_id = null;
       }
 
       // Handle image upload
@@ -149,6 +202,8 @@ export default function AssetsDashboard() {
         const base64 = await convertImageToBase64(imageFile);
         (payload as any).image_base64 = base64.split(',')[1];
       }
+
+      console.log('Saving asset with payload:', payload); // Debug log
 
       if (selectedAsset) {
         // Update existing asset
@@ -166,68 +221,69 @@ export default function AssetsDashboard() {
   };
 
   // Import song as asset
-  // Import song as asset
-const importSongAsAsset = async (song: any) => {
-  try {
-    const payload: CreateAssetData = {
-      title: song.title,
-      type: "single",
-      artist: song.artist,
-      price: 10.00, // Default price, can be adjusted
-      total_shares: 1000, // Default shares
-      status: "active",
-      song_id: song.id, // Make sure this is included
-      genre: "Music", // Default genre
-      expected_roi_percent: 15.0, // Default ROI
-      current_roi_percent: 0.0,
-      available_shares: 1000,
-    };
+  const importSongAsAsset = async (song: any) => {
+    try {
+      const payload: CreateAssetData = {
+        title: song.title,
+        type: "single",
+        artist: song.artist,
+        price: 10.00, // Default price, can be adjusted
+        total_shares: 1000, // Default shares
+        status: "active",
+        song_id: song.id, // Make sure this is included
+        genre: "Music", // Default genre
+        expected_roi_min: 10.0, // Default ROI range
+        expected_roi_max: 20.0,
+        current_roi_percent: 0.0,
+        available_shares: 1000,
+      };
 
-    await dispatch(createAsset(payload)).unwrap();
-    setSearchModalOpen(false);
-    setSearchQuery("");
-    dispatch(clearSearchResults());
-    dispatch(fetchAssets({ per_page: 100 }));
-    
-    console.log('✅ Song imported as asset successfully');
-  } catch (error) {
-    console.error('❌ Error importing song as asset:', error);
-  }
-};
+      await dispatch(createAsset(payload)).unwrap();
+      setSearchModalOpen(false);
+      setSearchQuery("");
+      dispatch(clearSearchResults());
+      dispatch(fetchAssets({ per_page: 100 }));
+      
+      console.log('✅ Song imported as asset successfully');
+    } catch (error) {
+      console.error('❌ Error importing song as asset:', error);
+    }
+  };
 
-// Import from Spotify as asset
-const importSpotifyAsAsset = async (track: SpotifyTrack) => {
-  try {
-    // First import the song to get a song_id
-    const result = await dispatch(importSpotify(track.spotify_id)).unwrap();
-    const importedSong = result.song;
-    
-    // Then create asset from the imported song with the song_id
-    const payload: CreateAssetData = {
-      title: track.title,
-      type: "single",
-      artist: track.artist,
-      price: 10.00,
-      total_shares: 1000,
-      status: "active",
-      song_id: importedSong.id, // Use the imported song's ID
-      genre: "Music",
-      expected_roi_percent: 15.0,
-      current_roi_percent: 0.0,
-      available_shares: 1000,
-    };
+  // Import from Spotify as asset
+  const importSpotifyAsAsset = async (track: SpotifyTrack) => {
+    try {
+      // First import the song to get a song_id
+      const result = await dispatch(importSpotify(track.spotify_id)).unwrap();
+      const importedSong = result.song;
+      
+      // Then create asset from the imported song with the song_id
+      const payload: CreateAssetData = {
+        title: track.title,
+        type: "single",
+        artist: track.artist,
+        price: 10.00,
+        total_shares: 1000,
+        status: "active",
+        song_id: importedSong.id, // Use the imported song's ID
+        genre: "Music",
+        expected_roi_min: 10.0,
+        expected_roi_max: 20.0,
+        current_roi_percent: 0.0,
+        available_shares: 1000,
+      };
 
-    await dispatch(createAsset(payload)).unwrap();
-    setSearchModalOpen(false);
-    setSearchQuery("");
-    dispatch(clearSearchResults());
-    dispatch(fetchAssets({ per_page: 100 }));
-    
-    console.log('✅ Spotify track imported as asset successfully');
-  } catch (error) {
-    console.error('❌ Error importing Spotify track as asset:', error);
-  }
-};
+      await dispatch(createAsset(payload)).unwrap();
+      setSearchModalOpen(false);
+      setSearchQuery("");
+      dispatch(clearSearchResults());
+      dispatch(fetchAssets({ per_page: 100 }));
+      
+      console.log('✅ Spotify track imported as asset successfully');
+    } catch (error) {
+      console.error('❌ Error importing Spotify track as asset:', error);
+    }
+  };
 
   // Search Spotify
   const handleSearch = () => {
@@ -282,7 +338,7 @@ const importSpotifyAsAsset = async (track: SpotifyTrack) => {
     <div className="p-8 bg-[#111] min-h-screen text-white">
       {/* Header */}
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">📊 Assets Manager</h1>
+        <h1 className="text-2xl font-bold">Assets Manager</h1>
         <div className="flex gap-2">
           <button
             onClick={() => setSearchModalOpen(true)}
@@ -360,7 +416,7 @@ const importSpotifyAsAsset = async (track: SpotifyTrack) => {
                 <td className="px-6 py-4 whitespace-nowrap text-gray-300">{asset.genre || '-'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-300">${asset.price}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                  {asset.expected_roi_percent ? `${asset.expected_roi_percent}%` : '-'}
+                  {getExpectedROIDisplay(asset)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-gray-300">
                   {asset.current_roi_percent ? `${asset.current_roi_percent}%` : '-'}
@@ -544,15 +600,50 @@ const importSpotifyAsAsset = async (track: SpotifyTrack) => {
               {/* ROI and Status */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Expected ROI %</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Expected ROI % (Single)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.expected_roi_percent}
-                    onChange={(e) => handleInputChange('expected_roi_percent', e.target.value)}
+                    onChange={(e) => {
+                      handleInputChange('expected_roi_percent', e.target.value);
+                      if (e.target.value) clearROIFields(false);
+                    }}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="10.5"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Or use range below</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Expected ROI Min %</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.expected_roi_min}
+                      onChange={(e) => {
+                        handleInputChange('expected_roi_min', e.target.value);
+                        if (e.target.value) clearROIFields(true);
+                      }}
+                      className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                      placeholder="8.0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Expected ROI Max %</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.expected_roi_max}
+                      onChange={(e) => {
+                        handleInputChange('expected_roi_max', e.target.value);
+                        if (e.target.value) clearROIFields(true);
+                      }}
+                      className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                      placeholder="15.0"
+                    />
+                  </div>
                 </div>
 
                 <div>

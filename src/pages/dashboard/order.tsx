@@ -385,136 +385,270 @@ const XchangePage: React.FC = () => {
 
             {/* Table Body */}
             <div className="space-y-2">
-              {loading && filteredItems.length === 0 ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : filteredItems.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-500 text-lg mb-2">
-                    {activeTab === "portfolio" ? "No investment items found" : "No order history found"}
+  {loading && filteredItems.length === 0 ? (
+    <div className="flex justify-center items-center py-12">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  ) : filteredItems.length === 0 ? (
+    <div className="text-center py-12">
+      <div className="text-gray-500 text-lg mb-2">
+        {activeTab === "portfolio" ? "No investment items found" : "No order history found"}
+      </div>
+      <div className="text-gray-400 text-sm">
+        {activeFilter !== "All" 
+          ? `No ${activeFilter.toLowerCase()} ${activeTab === "portfolio" ? 'assets' : 'orders'} found` 
+          : activeTab === "portfolio" 
+            ? "You haven't made any investments yet"
+            : "You haven't made any orders yet"}
+      </div>
+    </div>
+  ) : (
+    filteredItems.map((item, idx) => (
+      <div
+        key={`${item.id}-${idx}`}
+        className="group bg-gray-700/20 hover:bg-gray-700/40 border border-transparent hover:border-gray-600/30 rounded-xl p-4 transition-all duration-200"
+      >
+        {/* Mobile Layout - Stacked */}
+        <div className="lg:hidden space-y-4">
+          {/* Header Section - Asset Info */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="relative flex-shrink-0">
+                <img
+                  src={item.logo}
+                  alt={item.name}
+                  className="w-10 h-10 rounded-lg shadow-lg object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
+                  }}
+                />
+                {activeTab === "portfolio" && item.status === "Owned" && (
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                    <span className="text-[10px] text-white">✓</span>
                   </div>
-                  <div className="text-gray-400 text-sm">
-                    {activeFilter !== "All" 
-                      ? `No ${activeFilter.toLowerCase()} ${activeTab === "portfolio" ? 'assets' : 'orders'} found` 
-                      : activeTab === "portfolio" 
-                        ? "You haven't made any investments yet"
-                        : "You haven't made any orders yet"}
-                  </div>
-                </div>
-              ) : (
-                filteredItems.map((item, idx) => (
-                  <div
-                    key={`${item.id}-${idx}`}
-                    className={`grid gap-4 items-center p-4 rounded-xl bg-gray-700/20 hover:bg-gray-700/40 transition-all duration-200 border border-transparent hover:border-gray-600/30 group ${
-                      activeTab === "portfolio" ? "grid-cols-12" : "grid-cols-13"
-                    }`}
-                  >
-                    {/* Asset Info */}
-                    <div className={activeTab === "portfolio" ? "col-span-4" : "col-span-5"}>
-                      <div className="flex items-center gap-4">
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={item.logo}
-                            alt={item.name}
-                            className="w-12 h-12 rounded-xl shadow-lg object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
-                            }}
-                          />
-                          {activeTab === "portfolio" && item.status === "Owned" && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                              <span className="text-xs text-white">✓</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-semibold truncate group-hover:text-blue-300 transition-colors">
-                            {item.name}
-                          </h3>
-                          <p className="text-gray-400 text-sm truncate">
-                            {item.company}
-                          </p>
-                          {activeTab === "portfolio" && item.status === "Owned" && (
-                            <p className="text-gray-500 text-xs mt-1">
-                              {item.quantity} shares • ${parseFloat(item.current_value).toFixed(2)}
-                            </p>
-                          )}
-                          {activeTab === "history" && (
-                            <p className="text-gray-500 text-xs mt-1">
-                              Ref: {item.reference}
-                            </p>
-                          )}
-                          {activeTab === "portfolio" && item.status !== "Owned" && (
-                            <p className="text-gray-500 text-xs mt-1">
-                              {item.quantity} shares • ${parseFloat(item.total || "0").toFixed(2)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Asset Type */}
-                    <div className="col-span-2 flex justify-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getTypeColor(item.type)}`}>
-                        {item.type}
-                      </span>
-                    </div>
-
-                    {/* Order Type (History Only) */}
-                    {activeTab === "history" && (
-                      <div className="col-span-2 flex justify-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(item.order_type)}`}>
-                          {item.order_type.toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Price & Change */}
-                    <div className="col-span-2 text-center">
-                      <div className="text-white font-semibold">{item.price}</div>
-                      <div className={`text-xs font-medium ${getChangeColor(item.change)}`}>
-                        {item.change}
-                      </div>
-                      {activeTab === "history" && (
-                        <div className="text-gray-400 text-xs mt-1">
-                          Qty: {item.quantity}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Date */}
-                    <div className="col-span-2 text-center">
-                      <div className="text-gray-300 text-sm">{item.date}</div>
-                    </div>
-
-                    {/* Status & Actions */}
-                    <div className="col-span-2 flex flex-col items-end gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(item.status)}`}>
-                        {item.status}
-                      </span>
-                      
-                      {activeTab === "portfolio" && item.status === "Owned" && item.quantity > 0 && (
-                        <button
-                          onClick={() => handleSellClick(item)}
-                          disabled={actionLoading !== null}
-                          className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-semibold border border-red-500/30 hover:border-red-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {actionLoading === `sell-${item.id}` ? (
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
-                              Processing...
-                            </div>
-                          ) : (
-                            "Sell Shares"
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-white font-semibold text-sm truncate group-hover:text-blue-300 transition-colors">
+                  {item.name}
+                </h3>
+                <p className="text-gray-400 text-xs truncate">
+                  {item.company}
+                </p>
+                {activeTab === "history" && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    Ref: {item.reference}
+                  </p>
+                )}
+              </div>
             </div>
+            
+            {/* Status Badge */}
+            <div className="flex flex-col items-end gap-2">
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(item.status)}`}>
+                {item.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Details Grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {/* Type */}
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs">Type</p>
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getTypeColor(item.type)}`}>
+                {item.type}
+              </span>
+            </div>
+
+            {/* Order Type (History Only) */}
+            {activeTab === "history" && (
+              <div className="space-y-1">
+                <p className="text-gray-400 text-xs">Order Type</p>
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(item.order_type)}`}>
+                  {item.order_type.toUpperCase()}
+                </span>
+              </div>
+            )}
+
+            {/* Price */}
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs">Price</p>
+              <div className="text-white font-semibold text-sm">{item.price}</div>
+            </div>
+
+            {/* Change */}
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs">Change</p>
+              <div className={`text-sm font-medium ${getChangeColor(item.change)}`}>
+                {item.change}
+              </div>
+            </div>
+
+            {/* Quantity */}
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs">Quantity</p>
+              <div className="text-white text-sm">
+                {item.quantity} {activeTab === "portfolio" && item.status === "Owned" && "shares"}
+              </div>
+            </div>
+
+            {/* Date */}
+            <div className="space-y-1">
+              <p className="text-gray-400 text-xs">Date</p>
+              <div className="text-gray-300 text-sm">{item.date}</div>
+            </div>
+
+            {/* Current Value (Portfolio Only) */}
+            {activeTab === "portfolio" && item.status === "Owned" && (
+              <div className="space-y-1 col-span-2">
+                <p className="text-gray-400 text-xs">Current Value</p>
+                <div className="text-white font-semibold text-sm">
+                  ${parseFloat(item.current_value).toFixed(2)}
+                </div>
+              </div>
+            )}
+
+            {/* Total (History/Non-owned) */}
+            {(activeTab === "history" || (activeTab === "portfolio" && item.status !== "Owned")) && (
+              <div className="space-y-1 col-span-2">
+                <p className="text-gray-400 text-xs">Total</p>
+                <div className="text-white font-semibold text-sm">
+                  ${parseFloat(item.total || "0").toFixed(2)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sell Button */}
+          {activeTab === "portfolio" && item.status === "Owned" && item.quantity > 0 && (
+            <div className="pt-2 border-t border-gray-600/30">
+              <button
+                onClick={() => handleSellClick(item)}
+                disabled={actionLoading !== null}
+                className="w-full px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-lg text-sm font-semibold border border-red-500/30 hover:border-red-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {actionLoading === `sell-${item.id}` ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  "Sell Shares"
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Layout - Grid */}
+        <div className="hidden lg:grid gap-4 items-center grid-cols-12">
+          {/* Asset Info */}
+          <div className={activeTab === "portfolio" ? "col-span-4" : "col-span-5"}>
+            <div className="flex items-center gap-4">
+              <div className="relative flex-shrink-0">
+                <img
+                  src={item.logo}
+                  alt={item.name}
+                  className="w-12 h-12 rounded-xl shadow-lg object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
+                  }}
+                />
+                {activeTab === "portfolio" && item.status === "Owned" && (
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                    <span className="text-xs text-white">✓</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-white font-semibold truncate group-hover:text-blue-300 transition-colors">
+                  {item.name}
+                </h3>
+                <p className="text-gray-400 text-sm truncate">
+                  {item.company}
+                </p>
+                {activeTab === "portfolio" && item.status === "Owned" && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    {item.quantity} shares • ${parseFloat(item.current_value).toFixed(2)}
+                  </p>
+                )}
+                {activeTab === "history" && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    Ref: {item.reference}
+                  </p>
+                )}
+                {activeTab === "portfolio" && item.status !== "Owned" && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    {item.quantity} shares • ${parseFloat(item.total || "0").toFixed(2)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Asset Type */}
+          <div className="col-span-2 flex justify-center">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getTypeColor(item.type)}`}>
+              {item.type}
+            </span>
+          </div>
+
+          {/* Order Type (History Only) */}
+          {activeTab === "history" && (
+            <div className="col-span-2 flex justify-center">
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(item.order_type)}`}>
+                {item.order_type.toUpperCase()}
+              </span>
+            </div>
+          )}
+
+          {/* Price & Change */}
+          <div className="col-span-2 text-center">
+            <div className="text-white font-semibold">{item.price}</div>
+            <div className={`text-xs font-medium ${getChangeColor(item.change)}`}>
+              {item.change}
+            </div>
+            {activeTab === "history" && (
+              <div className="text-gray-400 text-xs mt-1">
+                Qty: {item.quantity}
+              </div>
+            )}
+          </div>
+
+          {/* Date */}
+          <div className="col-span-2 text-center">
+            <div className="text-gray-300 text-sm">{item.date}</div>
+          </div>
+
+          {/* Status & Actions */}
+          <div className="col-span-2 flex flex-col items-end gap-2">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(item.status)}`}>
+              {item.status}
+            </span>
+            
+            {activeTab === "portfolio" && item.status === "Owned" && item.quantity > 0 && (
+              <button
+                onClick={() => handleSellClick(item)}
+                disabled={actionLoading !== null}
+                className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 rounded-lg text-xs font-semibold border border-red-500/30 hover:border-red-500/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading === `sell-${item.id}` ? (
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </div>
+                ) : (
+                  "Sell Shares"
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    ))
+  )}
+</div>
           </div>
         </div>
       </div>

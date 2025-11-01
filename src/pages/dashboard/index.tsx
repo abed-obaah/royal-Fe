@@ -427,7 +427,7 @@ export default function Example() {
           </div>
 
           <main className="py-10 bg-[#31373e]">
-            <div className="px-4 sm:px-6 lg:px-8">
+            <div className="px-2 sm:px-2 lg:px-4">
               <ActiveComponent user={user} />
             </div>
           </main>

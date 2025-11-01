@@ -20,6 +20,7 @@ const filters = {
     { value: 'Electronic', label: 'Electronic', checked: false },
     { value: 'R&B', label: 'R&B', checked: false },
     { value: 'Classical', label: 'Classical', checked: false },
+    { value: 'Christian', label: 'Christian', checked: false },
     { value: 'Jazz', label: 'Jazz', checked: false },
   ],
   risk_rating: [

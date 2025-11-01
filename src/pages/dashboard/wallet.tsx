@@ -224,15 +224,15 @@ export default function WalletUI() {
   const currency = wallet.currency || "USD";
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="px-2 md:p-6 max-w-7xl mx-auto">
       {/* Wallet Section */}
       <div className="bg-[#222629] p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between mb-6">
        <div className="flex flex-col space-y-6 w-full max-w-md mx-auto px-4 sm:px-0">
   {/* Currency Selector */}
   <div className="w-full">
-    <select className="w-full border rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <option>{currency}</option>
-    </select>
+    <div className="w-full border rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <p>{currency}</p>
+    </div>
   </div>
 
   {/* Balance + toggle */}
@@ -344,7 +344,7 @@ export default function WalletUI() {
         {/* Table Header */}
         <div className="p-6 border-b border-gray-700">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h2 className="text-xl font-bold text-white">Transaction Historys</h2>
+            <h2 className="text-xl font-bold text-white">Transaction History</h2>
             
             <div className="flex flex-col md:flex-row gap-3">
               {/* Search */}

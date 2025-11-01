@@ -386,7 +386,7 @@ export default function AlbumGrid({ onAlbumClick }) {
           className="px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
         />
 
-        <Menu as="div" className="relative inline-block">
+        {/* <Menu as="div" className="relative inline-block">
           <MenuButton className="inline-flex items-center text-sm text-gray-300">
             Sort by
             <ChevronDownIcon className="ml-1 h-5 w-5 text-gray-400" />
@@ -413,11 +413,11 @@ export default function AlbumGrid({ onAlbumClick }) {
               ))}
             </div>
           </MenuItems>
-        </Menu>
+        </Menu> */}
       </div>
 
       {/* Album Table */}
-      <div className="p-4">
+      <div className="px-4 md:p-6">
         {/* <div className="overflow-x-auto">
           <table className="min-w-full bg-[#222629] rounded-lg">
             <thead className="bg-gray-800">
@@ -586,10 +586,10 @@ export default function AlbumGrid({ onAlbumClick }) {
                 {/* Table Header */}
                 <div className="p-6 border-b border-gray-700">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <h2 className="text-xl font-bold text-white">Transaction Historys</h2>
+                    <h2 className="text-xl font-bold text-white">Transaction History</h2>
                     
-                    <div className="flex flex-col md:flex-row gap-3">
-                      {/* Search */}
+                    {/* <div className="flex flex-col md:flex-row gap-3">
+                      
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                         <input
@@ -601,7 +601,7 @@ export default function AlbumGrid({ onAlbumClick }) {
                         />
                       </div>
         
-                      {/* Filters */}
+                     
                       <select
                         value={filterKind}
                         onChange={(e) => setFilterKind(e.target.value)}
@@ -622,7 +622,7 @@ export default function AlbumGrid({ onAlbumClick }) {
                         <option value="completed">Completed</option>
                         <option value="failed">Failed</option>
                       </select>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
         

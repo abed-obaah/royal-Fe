@@ -106,7 +106,7 @@ const navigation = [
   { name: 'Songs', href: '#', icon: ChartPieIcon, component: Songs },
   { name: 'Assets', href: '#', icon: ChartPieIcon, component: Orders },
   { name: 'Baskets', href: '#', icon: ChartPieIcon, component: Orders2 },
-  { name: 'kYC', href: '#', icon: ChartPieIcon, component: KycDashboard },
+  { name: 'KYC', href: '#', icon: ChartPieIcon, component: KycDashboard },
   { name: 'Order History', href: '#', icon: ChartPieIcon, component: OrderDecision},
   { name: 'Referrals', href: '#', icon: DocumentDuplicateIcon, component: Wallet },
   { name: 'Manage Users', href: '#', icon: ChartPieIcon, component: Manage },

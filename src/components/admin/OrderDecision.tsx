@@ -501,253 +501,465 @@ const fetchUserInvestments = async (userId: string) => {
         </div>
 
         {/* Content based on active tab */}
-        {activeTab === 'orders' ? (
-          /* Orders Table */
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
-              <div className="col-span-3">ASSET & USER</div>
-              <div className="col-span-2 text-center">ORDER DETAILS</div>
-              <div className="col-span-2 text-center">FINANCIAL INFO</div>
-              <div className="col-span-2 text-center">DATE</div>
-              <div className="col-span-3 text-right">ACTIONS</div>
+       {activeTab === 'orders' ? (
+  /* Orders Table */
+  <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
+    {/* Table Header - Desktop Only */}
+    <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
+      <div className="col-span-3">ASSET & USER</div>
+      <div className="col-span-2 text-center">ORDER DETAILS</div>
+      <div className="col-span-2 text-center">FINANCIAL INFO</div>
+      <div className="col-span-2 text-center">DATE</div>
+      <div className="col-span-3 text-right">ACTIONS</div>
+    </div>
+
+    {/* Table Body */}
+    <div className="divide-y divide-gray-700/50">
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      ) : displayOrders.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="text-gray-500 text-lg mb-2">
+            No pending orders found
+          </div>
+          <div className="text-gray-400 text-sm">
+            {searchTerm ? "Try adjusting your search criteria" : "All sell orders have been processed"}
+          </div>
+        </div>
+      ) : (
+        displayOrders.map((order) => (
+          <div
+            key={order.id}
+            className="p-4 lg:p-6 hover:bg-gray-700/20 transition-all duration-200"
+          >
+            {/* Mobile Layout */}
+            <div className="lg:hidden space-y-4">
+              {/* Header Section */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={getImageSrc(order.asset)}
+                      alt={order.asset?.title || 'Asset'}
+                      className="w-10 h-10 rounded-lg shadow-lg object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
+                      }}
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                      <span className="text-[10px] text-white">!</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold text-sm truncate">
+                      {order.asset?.title || `Asset ${order.asset_id}`}
+                    </h3>
+                    <p className="text-gray-400 text-xs truncate">
+                      {order.asset?.artist || "Unknown Artist"}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      Ref: {order.reference}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Status Badge */}
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
+                  {order.status.toUpperCase()}
+                </span>
+              </div>
+
+              {/* User Info */}
+              <div className="bg-gray-700/30 rounded-lg p-3">
+                <p className="text-gray-400 text-xs mb-1">User</p>
+                <p className="text-white text-sm font-medium">
+                  {order.user?.name || `User ${order.user_id}`}
+                </p>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {/* Order Type */}
+                <div className="space-y-1">
+                  <p className="text-gray-400 text-xs">Order Type</p>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
+                    {order.order_type.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Quantity */}
+                <div className="space-y-1">
+                  <p className="text-gray-400 text-xs">Quantity</p>
+                  <p className="text-white font-semibold text-sm">
+                    {order.quantity} shares
+                  </p>
+                </div>
+
+                {/* Price */}
+                <div className="space-y-1">
+                  <p className="text-gray-400 text-xs">Price</p>
+                  <p className="text-white font-semibold text-sm">
+                    ${parseFloat(order.price || '0').toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Total */}
+                <div className="space-y-1">
+                  <p className="text-gray-400 text-xs">Total</p>
+                  <p className="text-green-400 text-sm font-medium">
+                    ${parseFloat(order.total || '0').toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Date */}
+                <div className="space-y-1 col-span-2">
+                  <p className="text-gray-400 text-xs">Date</p>
+                  <p className="text-gray-300 text-sm">
+                    {formatDate(order.created_at)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2 border-t border-gray-600/30">
+                <button
+                  onClick={() => handleApproveReject(order.id, 'approve')}
+                  disabled={actionLoading === order.id}
+                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
+                >
+                  {actionLoading === order.id ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    "Approve"
+                  )}
+                </button>
+                <button
+                  onClick={() => handleApproveReject(order.id, 'reject')}
+                  disabled={actionLoading === order.id}
+                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
+                >
+                  {actionLoading === order.id ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    "Reject"
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Table Body */}
-            <div className="divide-y divide-gray-700/50">
-              {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : displayOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-500 text-lg mb-2">
-                    No pending orders found
+            {/* Desktop Layout */}
+            <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+              {/* Asset & User Info */}
+              <div className="col-span-3">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={getImageSrc(order.asset)}
+                      alt={order.asset?.title || 'Asset'}
+                      className="w-12 h-12 rounded-xl shadow-lg object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
+                      }}
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                      <span className="text-xs text-white">!</span>
+                    </div>
                   </div>
-                  <div className="text-gray-400 text-sm">
-                    {searchTerm ? "Try adjusting your search criteria" : "All sell orders have been processed"}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold truncate">
+                      {order.asset?.title || `Asset ${order.asset_id}`}
+                    </h3>
+                    <p className="text-gray-400 text-sm truncate">
+                      {order.asset?.artist || "Unknown Artist"}
+                    </p>
+                    <p className="text-gray-400 text-sm truncate">
+                      User: {order.user?.name || `User ${order.user_id}`}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      Ref: {order.reference}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                displayOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="grid grid-cols-12 gap-4 items-center p-6 hover:bg-gray-700/20 transition-all duration-200"
+              </div>
+
+              {/* Order Details */}
+              <div className="col-span-2 text-center">
+                <div className="flex flex-col gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
+                    {order.order_type.toUpperCase()}
+                  </span>
+                  <span className="text-white font-semibold">
+                    {order.quantity} shares
+                  </span>
+                </div>
+              </div>
+
+              {/* Financial Info */}
+              <div className="col-span-2 text-center">
+                <div className="text-white font-semibold">${parseFloat(order.price || '0').toFixed(2)}</div>
+                <div className="text-green-400 text-sm font-medium">
+                  ${parseFloat(order.total || '0').toFixed(2)}
+                </div>
+              </div>
+
+              {/* Date */}
+              <div className="col-span-2 text-center">
+                <div className="text-gray-300 text-sm">{formatDate(order.created_at)}</div>
+              </div>
+
+              {/* Actions / Status */}
+              <div className="col-span-3 flex flex-col items-end gap-3">
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
+                  {order.status.toUpperCase()}
+                </span>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApproveReject(order.id, 'approve')}
+                    disabled={actionLoading === order.id}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
                   >
-                    {/* Asset & User Info */}
-                    <div className="col-span-3">
-                      <div className="flex items-center gap-4">
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={getImageSrc(order.asset)}
-                            alt={order.asset?.title || 'Asset'}
-                            className="w-12 h-12 rounded-xl shadow-lg object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
-                            }}
-                          />
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                            <span className="text-xs text-white">!</span>
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-semibold truncate">
-                            {order.asset?.title || `Asset ${order.asset_id}`}
-                          </h3>
-                          <p className="text-gray-400 text-sm truncate">
-                            {order.asset?.artist || "Unknown Artist"}
-                          </p>
-                          <p className="text-gray-400 text-sm truncate">
-                            User: {order.user?.name || `User ${order.user_id}`}
-                          </p>
-                          <p className="text-gray-500 text-xs mt-1">
-                            Ref: {order.reference}
-                          </p>
-                        </div>
+                    {actionLoading === order.id ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        Processing...
                       </div>
-                    </div>
+                    ) : (
+                      "Approve"
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleApproveReject(order.id, 'reject')}
+                    disabled={actionLoading === order.id}
+                    className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
+                  >
+                    {actionLoading === order.id ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        Processing...
+                      </div>
+                    ) : (
+                      "Reject"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+) : (
+  /* Investments Table */
+  <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
+    {/* Table Header - Desktop Only */}
+    <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
+      <div className="col-span-4">USER</div>
+      <div className="col-span-3 text-center">INVESTMENT SUMMARY</div>
+      <div className="col-span-3 text-center">ASSETS</div>
+      <div className="col-span-2 text-right">ACTIONS</div>
+    </div>
 
-                    {/* Order Details */}
-                    <div className="col-span-2 text-center">
-                      <div className="flex flex-col gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
-                          {order.order_type.toUpperCase()}
+    {/* Table Body */}
+    <div className="divide-y divide-gray-700/50">
+      {investmentsLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+        </div>
+      ) : displayInvestments.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="text-gray-500 text-lg mb-2">
+            No investments found
+          </div>
+          <div className="text-gray-400 text-sm">
+            {searchTerm ? "Try adjusting your search criteria" : "No users have made investments yet"}
+          </div>
+        </div>
+      ) : (
+        displayInvestments.map((investment) => (
+          <div
+            key={investment.user_id}
+            className="p-4 lg:p-6 hover:bg-gray-700/20 transition-all duration-200"
+          >
+            {/* Mobile Layout */}
+            <div className="lg:hidden space-y-4">
+              {/* Header Section */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                    {investment.user_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold text-sm truncate">
+                      {investment.user_name}
+                    </h3>
+                    <p className="text-gray-400 text-xs truncate">
+                      {investment.user_email}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      ID: {investment.user_id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Investment Summary */}
+              <div className="bg-gray-700/30 rounded-lg p-3">
+                <div className="text-center">
+                  <div className="text-white font-semibold text-lg">
+                    {formatCurrency(investment.total_investment)}
+                  </div>
+                  <div className="text-green-400 text-sm">
+                    Total Investment
+                  </div>
+                  <div className="text-gray-400 text-xs mt-1">
+                    {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+
+              {/* Assets Preview */}
+              <div className="space-y-2">
+                <p className="text-gray-400 text-xs font-medium">Assets</p>
+                <div className="flex flex-wrap gap-2">
+                  {investment.assets.slice(0, 3).map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-2 py-1.5 border border-gray-600/50 flex-1 min-w-0"
+                    >
+                      <img
+                        src={getImageSrc(asset)}
+                        alt={asset.title}
+                        className="w-5 h-5 rounded object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-white text-xs font-medium truncate block">
+                          {asset.title}
                         </span>
-                        <span className="text-white font-semibold">
-                          {order.quantity} shares
+                        <span className="text-green-400 text-xs">
+                          {asset.invested_shares}s
                         </span>
                       </div>
                     </div>
-
-                    {/* Financial Info */}
-                    <div className="col-span-2 text-center">
-                      <div className="text-white font-semibold">${parseFloat(order.price || '0').toFixed(2)}</div>
-                      <div className="text-green-400 text-sm font-medium">
-                        ${parseFloat(order.total || '0').toFixed(2)}
-                      </div>
-                    </div>
-
-                    {/* Date */}
-                    <div className="col-span-2 text-center">
-                      <div className="text-gray-300 text-sm">{formatDate(order.created_at)}</div>
-                    </div>
-
-                    {/* Actions / Status */}
-                    <div className="col-span-3 flex flex-col items-end gap-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
-                        {order.status.toUpperCase()}
+                  ))}
+                  {investment.assets.length > 3 && (
+                    <div className="bg-gray-600/50 rounded-lg px-3 py-1.5 border border-gray-500/50">
+                      <span className="text-gray-400 text-xs">
+                        +{investment.assets.length - 3} more
                       </span>
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproveReject(order.id, 'approve')}
-                          disabled={actionLoading === order.id}
-                          className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
-                        >
-                          {actionLoading === order.id ? (
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                              Processing...
-                            </div>
-                          ) : (
-                            "Approve"
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleApproveReject(order.id, 'reject')}
-                          disabled={actionLoading === order.id}
-                          className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
-                        >
-                          {actionLoading === order.id ? (
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                              Processing...
-                            </div>
-                          ) : (
-                            "Reject"
-                          )}
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Investments Table */
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
-              <div className="col-span-4">USER</div>
-              <div className="col-span-3 text-center">INVESTMENT SUMMARY</div>
-              <div className="col-span-3 text-center">ASSETS</div>
-              <div className="col-span-2 text-right">ACTIONS</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2 border-t border-gray-600/30">
+                <button
+                  onClick={() => {
+                    setSelectedUser(investment);
+                    setShowInvestmentsModal(true);
+                  }}
+                  className="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200"
+                >
+                  View Details
+                </button>
+              </div>
             </div>
 
-            {/* Table Body */}
-            <div className="divide-y divide-gray-700/50">
-              {investmentsLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-                </div>
-              ) : displayInvestments.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-500 text-lg mb-2">
-                    No investments found
+            {/* Desktop Layout */}
+            <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+              {/* User Info */}
+              <div className="col-span-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-lg">
+                    {investment.user_name.charAt(0).toUpperCase()}
                   </div>
-                  <div className="text-gray-400 text-sm">
-                    {searchTerm ? "Try adjusting your search criteria" : "No users have made investments yet"}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold truncate">
+                      {investment.user_name}
+                    </h3>
+                    <p className="text-gray-400 text-sm truncate">
+                      {investment.user_email}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                      ID: {investment.user_id}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                displayInvestments.map((investment) => (
-                  <div
-                    key={investment.user_id}
-                    className="grid grid-cols-12 gap-4 items-center p-6 hover:bg-gray-700/20 transition-all duration-200"
-                  >
-                    {/* User Info */}
-                    <div className="col-span-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-lg">
-                          {investment.user_name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-semibold truncate">
-                            {investment.user_name}
-                          </h3>
-                          <p className="text-gray-400 text-sm truncate">
-                            {investment.user_email}
-                          </p>
-                          <p className="text-gray-500 text-xs mt-1">
-                            ID: {investment.user_id}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+              </div>
 
-                    {/* Investment Summary */}
-                    <div className="col-span-3 text-center">
-                      <div className="text-white font-semibold text-lg">
-                        {formatCurrency(investment.total_investment)}
-                      </div>
-                      <div className="text-green-400 text-sm">
-                        Total Investment
-                      </div>
-                      <div className="text-gray-400 text-xs mt-1">
-                        {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
-                      </div>
-                    </div>
+              {/* Investment Summary */}
+              <div className="col-span-3 text-center">
+                <div className="text-white font-semibold text-lg">
+                  {formatCurrency(investment.total_investment)}
+                </div>
+                <div className="text-green-400 text-sm">
+                  Total Investment
+                </div>
+                <div className="text-gray-400 text-xs mt-1">
+                  {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
+                </div>
+              </div>
 
-                    {/* Assets Preview */}
-                    <div className="col-span-3">
-                      <div className="flex flex-wrap gap-2">
-                        {investment.assets.slice(0, 3).map((asset) => (
-                          <div
-                            key={asset.id}
-                            className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-3 py-2 border border-gray-600/50"
-                          >
-                            <img
-                              src={getImageSrc(asset)}
-                              alt={asset.title}
-                              className="w-6 h-6 rounded object-cover"
-                            />
-                            <span className="text-white text-xs font-medium truncate max-w-20">
-                              {asset.title}
-                            </span>
-                            <span className="text-green-400 text-xs">
-                              {asset.invested_shares}s
-                            </span>
-                          </div>
-                        ))}
-                        {investment.assets.length > 3 && (
-                          <div className="bg-gray-600/50 rounded-lg px-3 py-2 border border-gray-500/50">
-                            <span className="text-gray-400 text-xs">
-                              +{investment.assets.length - 3} more
-                            </span>
-                          </div>
-                        )}
-                      </div>
+              {/* Assets Preview */}
+              <div className="col-span-3">
+                <div className="flex flex-wrap gap-2">
+                  {investment.assets.slice(0, 3).map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-3 py-2 border border-gray-600/50"
+                    >
+                      <img
+                        src={getImageSrc(asset)}
+                        alt={asset.title}
+                        className="w-6 h-6 rounded object-cover"
+                      />
+                      <span className="text-white text-xs font-medium truncate max-w-20">
+                        {asset.title}
+                      </span>
+                      <span className="text-green-400 text-xs">
+                        {asset.invested_shares}s
+                      </span>
                     </div>
+                  ))}
+                  {investment.assets.length > 3 && (
+                    <div className="bg-gray-600/50 rounded-lg px-3 py-2 border border-gray-500/50">
+                      <span className="text-gray-400 text-xs">
+                        +{investment.assets.length - 3} more
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                    {/* Actions */}
-                    <div className="col-span-2 flex justify-end">
-                      <button
-                        onClick={() => {
-                          setSelectedUser(investment);
-                          setShowInvestmentsModal(true);
-                        }}
-                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+              {/* Actions */}
+              <div className="col-span-2 flex justify-end">
+                <button
+                  onClick={() => {
+                    setSelectedUser(investment);
+                    setShowInvestmentsModal(true);
+                  }}
+                  className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
+                >
+                  View Details
+                </button>
+              </div>
             </div>
           </div>
-        )}
+        ))
+      )}
+    </div>
+  </div>
+)}
 
         {/* Royalty Distribution Modal */}
         {showRoyaltyModal && (

@@ -795,7 +795,7 @@ export default function UserManagementExtended() {
             </div>
           ) : (
             <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
-              {/* Header Section - Responsive */}
+              {/* Header Section - Super Responsive */}
               <div className="flex flex-col xl:flex-row gap-6 items-start">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-1 min-w-0">
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -846,9 +846,9 @@ export default function UserManagementExtended() {
                   </div>
                 </div>
 
-                {/* Quick Actions - Responsive Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 w-full xl:w-auto xl:min-w-[400px]">
-                  <div className="bg-gray-900 p-4 rounded-lg text-sm border border-gray-800">
+                {/* Quick Actions - Super Responsive Grid */}
+                <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 w-full lg:w-80 xl:w-96 2xl:w-auto 2xl:min-w-[400px]">
+                  <div className="bg-gray-900 p-3 sm:p-4 rounded-lg text-sm border border-gray-800">
                     <div className="text-gray-400 flex items-center gap-2 mb-1">
                       <DollarSign className="w-4 h-4" />
                       Balance
@@ -856,14 +856,15 @@ export default function UserManagementExtended() {
                     <div className="text-lg font-semibold mb-3">
                       ${selectedUser.total_balance.toFixed(2)}
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-col xs:flex-row gap-2">
                       <button
                         onClick={() => { setModal("credit"); setCreditAmount(""); setCreditReason(""); }}
-                        className="px-3 py-2 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center gap-2 text-sm flex-1 transition-colors"
+                        className="px-3 py-2 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center gap-2 text-sm flex-1 transition-colors min-h-[42px]"
                         disabled={actionLoading}
                       >
                         <Wallet className="w-4 h-4" />
-                        Credit/Debit
+                        <span className="hidden xs:inline">Credit/Debit</span>
+                        <span className="xs:hidden">Wallet</span>
                       </button>
                       <button
                         onClick={() => { setModal("editWallet"); setWalletForm({ 
@@ -871,7 +872,7 @@ export default function UserManagementExtended() {
                           invested_balance: selectedUser.invested_balance.toString(),
                           reason: ""
                         }); }}
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg flex items-center justify-center gap-2 text-sm flex-1 transition-colors"
+                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg flex items-center justify-center gap-2 text-sm flex-1 transition-colors min-h-[42px]"
                         disabled={actionLoading}
                       >
                         <Edit className="w-4 h-4" />
@@ -880,22 +881,22 @@ export default function UserManagementExtended() {
                     </div>
                   </div>
 
-                  <div className="bg-gray-900 p-4 rounded-lg text-sm border border-gray-800">
+                  <div className="bg-gray-900 p-3 sm:p-4 rounded-lg text-sm border border-gray-800">
                     <div className="text-gray-400 flex items-center gap-2 mb-1">
                       <Shield className="w-4 h-4" />
                       Verification
                     </div>
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex flex-col xs:flex-row gap-2">
                       <button 
                         onClick={() => handleVerifyEmail(selectedUser.id, true)}
-                        className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-sm flex-1 text-center min-w-[120px] transition-colors"
+                        className="px-3 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm flex-1 text-center transition-colors min-h-[42px]"
                         disabled={actionLoading}
                       >
-                        {actionLoading ? "..." : (selectedUser.is_email_verified ? "Re-verify" : "Verify Email")}
+                        {actionLoading ? "..." : (selectedUser.is_email_verified ? "Re-verify" : "Verify")}
                       </button>
                       <button 
                         onClick={() => handleVerifyEmail(selectedUser.id, false)}
-                        className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-lg text-sm flex-1 text-center min-w-[120px] transition-colors"
+                        className="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm flex-1 text-center transition-colors min-h-[42px]"
                         disabled={actionLoading || !selectedUser.is_email_verified}
                       >
                         {actionLoading ? "..." : "Unverify"}
@@ -905,8 +906,8 @@ export default function UserManagementExtended() {
                 </div>
               </div>
 
-              {/* Info Grid - Responsive */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Info Grid - Super Responsive */}
+              <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="bg-gray-900 p-4 rounded-lg text-sm border border-gray-800">
                   <div className="text-gray-400 flex items-center gap-2 mb-1">
                     <User className="w-4 h-4" />
@@ -948,7 +949,7 @@ export default function UserManagementExtended() {
                 </div>
               </div>
 
-              {/* Balance Breakdown - Responsive */}
+              {/* Balance Breakdown - Super Responsive */}
               <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                   <h4 className="font-semibold flex items-center gap-2">
@@ -970,7 +971,7 @@ export default function UserManagementExtended() {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 xs:grid-cols-3 gap-3">
                   <div className="text-center p-4 bg-gray-800 rounded-lg border border-gray-700">
                     <div className="text-gray-400 text-sm mb-2">Available Balance</div>
                     <div className="text-lg font-semibold text-green-400">${selectedUser.wallet_balance.toFixed(2)}</div>
@@ -1089,7 +1090,7 @@ export default function UserManagementExtended() {
                 </div>
               </div>
 
-              {/* Investments Section - Responsive */}
+              {/* Investments Section - Super Responsive */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -1178,14 +1179,14 @@ export default function UserManagementExtended() {
                 </div>
               </div>
 
-              {/* Statistics - Responsive */}
+              {/* Statistics - Super Responsive */}
               {userDetails?.statistics && (
                 <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
                   <h4 className="font-semibold mb-4 flex items-center gap-2">
                     <BarChart3 className="w-5 h-5" />
                     User Statistics
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="text-center p-4 bg-gray-800 rounded-lg border border-gray-700">
                       <div className="text-gray-400 text-sm mb-2">Total Deposits</div>
                       <div className="text-lg font-semibold">${userDetails.statistics.financial?.total_deposits?.toFixed(2) || '0.00'}</div>
@@ -1210,7 +1211,7 @@ export default function UserManagementExtended() {
         </div>
       </div>
 
-      {/* Modals - Responsive */}
+      {/* Modals - Super Responsive */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className={`bg-gray-900 rounded-xl shadow-2xl w-full max-h-[90vh] overflow-auto border border-gray-700 ${

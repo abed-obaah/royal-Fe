@@ -1,3 +1,4 @@
+// OrderDecision.tsx
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../../store";
@@ -5,9 +6,11 @@ import {
   fetchPendingSellOrders,
   approveSellOrder,
   fetchOrderHistory,
-  clearError
+  clearError,
+  fetchUserInvestmentDetails
 } from "../../slices/orderSlice";
 import { distributeRoyalties } from "../../api/royalty";
+import api from "../../services/axios";
 
 interface OrderDecisionProps {
   // You can add props here if needed
@@ -79,11 +82,47 @@ interface RoyaltyDistributionData {
   auto_process: boolean;
 }
 
+// User Investment Details Types
+interface UserInvestmentDetail {
+  id: number;
+  asset_id: number;
+  asset_title: string;
+  asset_artist: string;
+  asset_type: string;
+  purchase_price: number;
+  current_price: number;
+  quantity: number;
+  current_value: number;
+  total_investment: number;
+  profit_loss: number;
+  image_url: string | null;
+  image_base64: string | null;
+  purchased_at: string;
+  asset_status: string;
+}
+
+interface UserInvestmentDetailsData {
+  investments: UserInvestmentDetail[];
+  summary: {
+    total_investments: number;
+    total_current_value: number;
+    total_invested_amount: number;
+    total_profit_loss: number;
+    average_roi: number;
+  };
+}
+
 const OrderDecision: React.FC<OrderDecisionProps> = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { pendingSellOrders, orderHistory, loading, error } = useSelector(
-    (state: RootState) => state.order
-  );
+  const { 
+    pendingSellOrders, 
+    orderHistory, 
+    loading, 
+    error,
+    userInvestmentDetails,
+    investmentDetailsLoading,
+    investmentDetailsError
+  } = useSelector((state: RootState) => state.order);
 
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState<string>("");
@@ -116,84 +155,107 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
   useEffect(() => {
     dispatch(fetchPendingSellOrders());
     fetchAssets();
-    fetchUserInvestments();
+    fetchAllUserInvestments();
   }, [dispatch]);
 
   const fetchAssets = async () => {
-  try {
-    const response = await fetch('/api/assets', {
-      headers: {
-        'Authorization': `Bearer ${yourAuthToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+    try {
+      const response = await api.get('/assets');
+      
+      const data = response.data;
+      
+      // Handle both response formats
+      if (data.data) {
+        setAssets(data.data);
+      } else if (Array.isArray(data)) {
+        setAssets(data);
+      } else {
+        setAssets([]);
       }
-    });
-
-    // Check if response is JSON
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('Expected JSON but got:', text.substring(0, 200));
-      throw new Error('Server returned non-JSON response');
+    } catch (error: any) {
+      console.error('fetchAssets error:', error);
+      setShowSuccessMessage('Failed to fetch assets');
     }
+  };
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to fetch assets');
-    }
-
-    // Handle both response formats
-    if (data.success && data.data) {
-      return data.data; // New format
-    } else if (Array.isArray(data)) {
-      return data; // Old format (array)
-    } else {
-      return data; // Fallback
-    }
-
-  } catch (error) {
-    console.error('fetchAssets error:', error);
-    throw error;
-  }
-};
-
-const fetchUserInvestments = async (userId: string) => {
-  try {
-    const response = await fetch(`/api/admin/users/${userId}/investments`, {
-      headers: {
-        'Authorization': `Bearer ${yourAuthToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+  const fetchAllUserInvestments = async () => {
+    setInvestmentsLoading(true);
+    try {
+      const response = await api.get('/admin/users');
+      
+      const data = response.data;
+      
+      // Handle different response formats
+      let users = [];
+      if (data.users) {
+        users = data.users;
+      } else if (data.data) {
+        users = data.data;
+      } else if (Array.isArray(data)) {
+        users = data;
       }
-    });
 
-    // Check if response is JSON
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('Expected JSON but got:', text.substring(0, 200));
-      throw new Error('Users API returned non-JSON response');
+      console.log('Fetched users:', users);
+      
+      // For each user, fetch their investment details
+      const investmentsPromises = users.map(async (user: any) => {
+        try {
+          const investmentResponse = await api.get(`/admin/users/${user.id}/investment-details`);
+          
+          const investmentData = investmentResponse.data;
+          console.log(`Investment data for user ${user.id}:`, investmentData);
+          
+          if (investmentData.investments && investmentData.investments.length > 0) {
+            return {
+              user_id: user.id,
+              user_name: user.name,
+              user_email: user.email,
+              assets: investmentData.investments.map((inv: UserInvestmentDetail) => ({
+                id: inv.asset_id,
+                title: inv.asset_title,
+                artist: inv.asset_artist,
+                type: inv.asset_type,
+                price: inv.current_price.toString(),
+                image_base64: inv.image_base64,
+                image_url: inv.image_url,
+                invested_shares: inv.quantity,
+                current_value: inv.current_value.toString()
+              })),
+              total_investment: investmentData.summary.total_current_value
+            };
+          } else {
+            console.log(`No investments found for user ${user.id}`);
+          }
+          return null;
+        } catch (error) {
+          console.error(`Failed to fetch investments for user ${user.id}:`, error);
+          return null;
+        }
+      });
+
+      const investmentsResults = await Promise.all(investmentsPromises);
+      const validInvestments = investmentsResults.filter(inv => inv !== null) as UserInvestment[];
+      
+      console.log('Valid investments:', validInvestments);
+      setUserInvestments(validInvestments);
+    } catch (error: any) {
+      console.error('fetchAllUserInvestments error:', error);
+      setShowSuccessMessage('Failed to fetch user investments');
+    } finally {
+      setInvestmentsLoading(false);
     }
+  };
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to fetch user investments');
+  const handleViewUserInvestments = async (user: any) => {
+    setSelectedUser(user);
+    try {
+      await dispatch(fetchUserInvestmentDetails(user.user_id)).unwrap();
+      setShowInvestmentsModal(true);
+    } catch (error) {
+      console.error('Failed to fetch user investment details:', error);
+      setShowSuccessMessage('Failed to load user investment details');
     }
-
-    // Handle both response formats
-    if (data.success && data.data) {
-      return data.data; // New format
-    } else {
-      return data; // Old format
-    }
-
-  } catch (error) {
-    console.error('fetchUserInvestments error:', error);
-    throw error;
-  }
-};
+  };
 
   const handleApproveReject = async (orderId: number, action: 'approve' | 'reject') => {
     setActionLoading(orderId);
@@ -247,25 +309,7 @@ const fetchUserInvestments = async (userId: string) => {
       }, 3000);
     } catch (error: any) {
       setShowSuccessMessage(`Distribution failed: ${error.message}`);
-    } finally {
-      setDistributionLoading(false);
-    }
-  };
-
-  const handleDistributeToUserAsset = async (userId: number, assetId: number) => {
-    setDistributionLoading(true);
-    try {
-      // For user-specific distribution, you might want to modify the API to handle single user
-      const result = await distributeRoyalties(assetId, {
-        ...distributionData,
-        asset_id: assetId,
-        // You could add user_id filter here if your API supports it
-      });
-      
-      setShowSuccessMessage(`Royalties distributed for user! Total: $${result.total_distributed}`);
-      setShowInvestmentsModal(false);
-    } catch (error: any) {
-      setShowSuccessMessage(`Distribution failed: ${error.message}`);
+      console.log(`Distribution failed: ${error}`)
     } finally {
       setDistributionLoading(false);
     }
@@ -501,465 +545,459 @@ const fetchUserInvestments = async (userId: string) => {
         </div>
 
         {/* Content based on active tab */}
-       {activeTab === 'orders' ? (
-  /* Orders Table */
-  <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
-    {/* Table Header - Desktop Only */}
-    <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
-      <div className="col-span-3">ASSET & USER</div>
-      <div className="col-span-2 text-center">ORDER DETAILS</div>
-      <div className="col-span-2 text-center">FINANCIAL INFO</div>
-      <div className="col-span-2 text-center">DATE</div>
-      <div className="col-span-3 text-right">ACTIONS</div>
-    </div>
-
-    {/* Table Body */}
-    <div className="divide-y divide-gray-700/50">
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
-      ) : displayOrders.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-500 text-lg mb-2">
-            No pending orders found
-          </div>
-          <div className="text-gray-400 text-sm">
-            {searchTerm ? "Try adjusting your search criteria" : "All sell orders have been processed"}
-          </div>
-        </div>
-      ) : (
-        displayOrders.map((order) => (
-          <div
-            key={order.id}
-            className="p-4 lg:p-6 hover:bg-gray-700/20 transition-all duration-200"
-          >
-            {/* Mobile Layout */}
-            <div className="lg:hidden space-y-4">
-              {/* Header Section */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={getImageSrc(order.asset)}
-                      alt={order.asset?.title || 'Asset'}
-                      className="w-10 h-10 rounded-lg shadow-lg object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
-                      }}
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                      <span className="text-[10px] text-white">!</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold text-sm truncate">
-                      {order.asset?.title || `Asset ${order.asset_id}`}
-                    </h3>
-                    <p className="text-gray-400 text-xs truncate">
-                      {order.asset?.artist || "Unknown Artist"}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      Ref: {order.reference}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Status Badge */}
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
-                  {order.status.toUpperCase()}
-                </span>
-              </div>
-
-              {/* User Info */}
-              <div className="bg-gray-700/30 rounded-lg p-3">
-                <p className="text-gray-400 text-xs mb-1">User</p>
-                <p className="text-white text-sm font-medium">
-                  {order.user?.name || `User ${order.user_id}`}
-                </p>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {/* Order Type */}
-                <div className="space-y-1">
-                  <p className="text-gray-400 text-xs">Order Type</p>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
-                    {order.order_type.toUpperCase()}
-                  </span>
-                </div>
-
-                {/* Quantity */}
-                <div className="space-y-1">
-                  <p className="text-gray-400 text-xs">Quantity</p>
-                  <p className="text-white font-semibold text-sm">
-                    {order.quantity} shares
-                  </p>
-                </div>
-
-                {/* Price */}
-                <div className="space-y-1">
-                  <p className="text-gray-400 text-xs">Price</p>
-                  <p className="text-white font-semibold text-sm">
-                    ${parseFloat(order.price || '0').toFixed(2)}
-                  </p>
-                </div>
-
-                {/* Total */}
-                <div className="space-y-1">
-                  <p className="text-gray-400 text-xs">Total</p>
-                  <p className="text-green-400 text-sm font-medium">
-                    ${parseFloat(order.total || '0').toFixed(2)}
-                  </p>
-                </div>
-
-                {/* Date */}
-                <div className="space-y-1 col-span-2">
-                  <p className="text-gray-400 text-xs">Date</p>
-                  <p className="text-gray-300 text-sm">
-                    {formatDate(order.created_at)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-2 border-t border-gray-600/30">
-                <button
-                  onClick={() => handleApproveReject(order.id, 'approve')}
-                  disabled={actionLoading === order.id}
-                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
-                >
-                  {actionLoading === order.id ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                      Processing...
-                    </div>
-                  ) : (
-                    "Approve"
-                  )}
-                </button>
-                <button
-                  onClick={() => handleApproveReject(order.id, 'reject')}
-                  disabled={actionLoading === order.id}
-                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
-                >
-                  {actionLoading === order.id ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                      Processing...
-                    </div>
-                  ) : (
-                    "Reject"
-                  )}
-                </button>
-              </div>
+        {activeTab === 'orders' ? (
+          /* Orders Table */
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
+            {/* Table Header - Desktop Only */}
+            <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
+              <div className="col-span-3">ASSET & USER</div>
+              <div className="col-span-2 text-center">ORDER DETAILS</div>
+              <div className="col-span-2 text-center">FINANCIAL INFO</div>
+              <div className="col-span-2 text-center">DATE</div>
+              <div className="col-span-3 text-right">ACTIONS</div>
             </div>
 
-            {/* Desktop Layout */}
-            <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
-              {/* Asset & User Info */}
-              <div className="col-span-3">
-                <div className="flex items-center gap-4">
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={getImageSrc(order.asset)}
-                      alt={order.asset?.title || 'Asset'}
-                      className="w-12 h-12 rounded-xl shadow-lg object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
-                      }}
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                      <span className="text-xs text-white">!</span>
-                    </div>
+            {/* Table Body */}
+            <div className="divide-y divide-gray-700/50">
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : displayOrders.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-500 text-lg mb-2">
+                    No pending orders found
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold truncate">
-                      {order.asset?.title || `Asset ${order.asset_id}`}
-                    </h3>
-                    <p className="text-gray-400 text-sm truncate">
-                      {order.asset?.artist || "Unknown Artist"}
-                    </p>
-                    <p className="text-gray-400 text-sm truncate">
-                      User: {order.user?.name || `User ${order.user_id}`}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      Ref: {order.reference}
-                    </p>
+                  <div className="text-gray-400 text-sm">
+                    {searchTerm ? "Try adjusting your search criteria" : "All sell orders have been processed"}
                   </div>
                 </div>
-              </div>
-
-              {/* Order Details */}
-              <div className="col-span-2 text-center">
-                <div className="flex flex-col gap-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
-                    {order.order_type.toUpperCase()}
-                  </span>
-                  <span className="text-white font-semibold">
-                    {order.quantity} shares
-                  </span>
-                </div>
-              </div>
-
-              {/* Financial Info */}
-              <div className="col-span-2 text-center">
-                <div className="text-white font-semibold">${parseFloat(order.price || '0').toFixed(2)}</div>
-                <div className="text-green-400 text-sm font-medium">
-                  ${parseFloat(order.total || '0').toFixed(2)}
-                </div>
-              </div>
-
-              {/* Date */}
-              <div className="col-span-2 text-center">
-                <div className="text-gray-300 text-sm">{formatDate(order.created_at)}</div>
-              </div>
-
-              {/* Actions / Status */}
-              <div className="col-span-3 flex flex-col items-end gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
-                  {order.status.toUpperCase()}
-                </span>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleApproveReject(order.id, 'approve')}
-                    disabled={actionLoading === order.id}
-                    className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
+              ) : (
+                displayOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-4 lg:p-6 hover:bg-gray-700/20 transition-all duration-200"
                   >
-                    {actionLoading === order.id ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                        Processing...
-                      </div>
-                    ) : (
-                      "Approve"
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleApproveReject(order.id, 'reject')}
-                    disabled={actionLoading === order.id}
-                    className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
-                  >
-                    {actionLoading === order.id ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                        Processing...
-                      </div>
-                    ) : (
-                      "Reject"
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-) : (
-  /* Investments Table */
-  <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
-    {/* Table Header - Desktop Only */}
-    <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
-      <div className="col-span-4">USER</div>
-      <div className="col-span-3 text-center">INVESTMENT SUMMARY</div>
-      <div className="col-span-3 text-center">ASSETS</div>
-      <div className="col-span-2 text-right">ACTIONS</div>
-    </div>
-
-    {/* Table Body */}
-    <div className="divide-y divide-gray-700/50">
-      {investmentsLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-        </div>
-      ) : displayInvestments.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-500 text-lg mb-2">
-            No investments found
-          </div>
-          <div className="text-gray-400 text-sm">
-            {searchTerm ? "Try adjusting your search criteria" : "No users have made investments yet"}
-          </div>
-        </div>
-      ) : (
-        displayInvestments.map((investment) => (
-          <div
-            key={investment.user_id}
-            className="p-4 lg:p-6 hover:bg-gray-700/20 transition-all duration-200"
-          >
-            {/* Mobile Layout */}
-            <div className="lg:hidden space-y-4">
-              {/* Header Section */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                    {investment.user_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold text-sm truncate">
-                      {investment.user_name}
-                    </h3>
-                    <p className="text-gray-400 text-xs truncate">
-                      {investment.user_email}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      ID: {investment.user_id}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Investment Summary */}
-              <div className="bg-gray-700/30 rounded-lg p-3">
-                <div className="text-center">
-                  <div className="text-white font-semibold text-lg">
-                    {formatCurrency(investment.total_investment)}
-                  </div>
-                  <div className="text-green-400 text-sm">
-                    Total Investment
-                  </div>
-                  <div className="text-gray-400 text-xs mt-1">
-                    {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
-                  </div>
-                </div>
-              </div>
-
-              {/* Assets Preview */}
-              <div className="space-y-2">
-                <p className="text-gray-400 text-xs font-medium">Assets</p>
-                <div className="flex flex-wrap gap-2">
-                  {investment.assets.slice(0, 3).map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-2 py-1.5 border border-gray-600/50 flex-1 min-w-0"
-                    >
-                      <img
-                        src={getImageSrc(asset)}
-                        alt={asset.title}
-                        className="w-5 h-5 rounded object-cover flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-white text-xs font-medium truncate block">
-                          {asset.title}
-                        </span>
-                        <span className="text-green-400 text-xs">
-                          {asset.invested_shares}s
+                    {/* Mobile Layout */}
+                    <div className="lg:hidden space-y-4">
+                      {/* Header Section */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={getImageSrc(order.asset)}
+                              alt={order.asset?.title || 'Asset'}
+                              className="w-10 h-10 rounded-lg shadow-lg object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                              <span className="text-[10px] text-white">!</span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold text-sm truncate">
+                              {order.asset?.title || `Asset ${order.asset_id}`}
+                            </h3>
+                            <p className="text-gray-400 text-xs truncate">
+                              {order.asset?.artist || "Unknown Artist"}
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                              Ref: {order.reference}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Status Badge */}
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
+                          {order.status.toUpperCase()}
                         </span>
                       </div>
-                    </div>
-                  ))}
-                  {investment.assets.length > 3 && (
-                    <div className="bg-gray-600/50 rounded-lg px-3 py-1.5 border border-gray-500/50">
-                      <span className="text-gray-400 text-xs">
-                        +{investment.assets.length - 3} more
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Action Button */}
-              <div className="pt-2 border-t border-gray-600/30">
-                <button
-                  onClick={() => {
-                    setSelectedUser(investment);
-                    setShowInvestmentsModal(true);
-                  }}
-                  className="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200"
-                >
-                  View Details
-                </button>
-              </div>
-            </div>
+                      {/* User Info */}
+                      <div className="bg-gray-700/30 rounded-lg p-3">
+                        <p className="text-gray-400 text-xs mb-1">User</p>
+                        <p className="text-white text-sm font-medium">
+                          {order.user?.name || `User ${order.user_id}`}
+                        </p>
+                      </div>
 
-            {/* Desktop Layout */}
-            <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
-              {/* User Info */}
-              <div className="col-span-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-lg">
-                    {investment.user_name.charAt(0).toUpperCase()}
+                      {/* Details Grid */}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        {/* Order Type */}
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-xs">Order Type</p>
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
+                            {order.order_type.toUpperCase()}
+                          </span>
+                        </div>
+
+                        {/* Quantity */}
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-xs">Quantity</p>
+                          <p className="text-white font-semibold text-sm">
+                            {order.quantity} shares
+                          </p>
+                        </div>
+
+                        {/* Price */}
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-xs">Price</p>
+                          <p className="text-white font-semibold text-sm">
+                            ${parseFloat(order.price || '0').toFixed(2)}
+                          </p>
+                        </div>
+
+                        {/* Total */}
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-xs">Total</p>
+                          <p className="text-green-400 text-sm font-medium">
+                            ${parseFloat(order.total || '0').toFixed(2)}
+                          </p>
+                        </div>
+
+                        {/* Date */}
+                        <div className="space-y-1 col-span-2">
+                          <p className="text-gray-400 text-xs">Date</p>
+                          <p className="text-gray-300 text-sm">
+                            {formatDate(order.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 pt-2 border-t border-gray-600/30">
+                        <button
+                          onClick={() => handleApproveReject(order.id, 'approve')}
+                          disabled={actionLoading === order.id}
+                          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
+                        >
+                          {actionLoading === order.id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                              Processing...
+                            </div>
+                          ) : (
+                            "Approve"
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleApproveReject(order.id, 'reject')}
+                          disabled={actionLoading === order.id}
+                          className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
+                        >
+                          {actionLoading === order.id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                              Processing...
+                            </div>
+                          ) : (
+                            "Reject"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+                      {/* Asset & User Info */}
+                      <div className="col-span-3">
+                        <div className="flex items-center gap-4">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={getImageSrc(order.asset)}
+                              alt={order.asset?.title || 'Asset'}
+                              className="w-12 h-12 rounded-xl shadow-lg object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "https://via.placeholder.com/40";
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                              <span className="text-xs text-white">!</span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold truncate">
+                              {order.asset?.title || `Asset ${order.asset_id}`}
+                            </h3>
+                            <p className="text-gray-400 text-sm truncate">
+                              {order.asset?.artist || "Unknown Artist"}
+                            </p>
+                            <p className="text-gray-400 text-sm truncate">
+                              User: {order.user?.name || `User ${order.user_id}`}
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                              Ref: {order.reference}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Order Details */}
+                      <div className="col-span-2 text-center">
+                        <div className="flex flex-col gap-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getOrderTypeColor(order.order_type)}`}>
+                            {order.order_type.toUpperCase()}
+                          </span>
+                          <span className="text-white font-semibold">
+                            {order.quantity} shares
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Financial Info */}
+                      <div className="col-span-2 text-center">
+                        <div className="text-white font-semibold">${parseFloat(order.price || '0').toFixed(2)}</div>
+                        <div className="text-green-400 text-sm font-medium">
+                          ${parseFloat(order.total || '0').toFixed(2)}
+                        </div>
+                      </div>
+
+                      {/* Date */}
+                      <div className="col-span-2 text-center">
+                        <div className="text-gray-300 text-sm">{formatDate(order.created_at)}</div>
+                      </div>
+
+                      {/* Actions / Status */}
+                      <div className="col-span-3 flex flex-col items-end gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(order.status)}`}>
+                          {order.status.toUpperCase()}
+                        </span>
+                        
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApproveReject(order.id, 'approve')}
+                            disabled={actionLoading === order.id}
+                            className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('approve')}`}
+                          >
+                            {actionLoading === order.id ? (
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                Processing...
+                              </div>
+                            ) : (
+                              "Approve"
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleApproveReject(order.id, 'reject')}
+                            disabled={actionLoading === order.id}
+                            className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getActionButtonColor('reject')}`}
+                          >
+                            {actionLoading === order.id ? (
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                Processing...
+                              </div>
+                            ) : (
+                              "Reject"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold truncate">
-                      {investment.user_name}
-                    </h3>
-                    <p className="text-gray-400 text-sm truncate">
-                      {investment.user_email}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-1">
-                      ID: {investment.user_id}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Investment Summary */}
-              <div className="col-span-3 text-center">
-                <div className="text-white font-semibold text-lg">
-                  {formatCurrency(investment.total_investment)}
-                </div>
-                <div className="text-green-400 text-sm">
-                  Total Investment
-                </div>
-                <div className="text-gray-400 text-xs mt-1">
-                  {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-
-              {/* Assets Preview */}
-              <div className="col-span-3">
-                <div className="flex flex-wrap gap-2">
-                  {investment.assets.slice(0, 3).map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-3 py-2 border border-gray-600/50"
-                    >
-                      <img
-                        src={getImageSrc(asset)}
-                        alt={asset.title}
-                        className="w-6 h-6 rounded object-cover"
-                      />
-                      <span className="text-white text-xs font-medium truncate max-w-20">
-                        {asset.title}
-                      </span>
-                      <span className="text-green-400 text-xs">
-                        {asset.invested_shares}s
-                      </span>
-                    </div>
-                  ))}
-                  {investment.assets.length > 3 && (
-                    <div className="bg-gray-600/50 rounded-lg px-3 py-2 border border-gray-500/50">
-                      <span className="text-gray-400 text-xs">
-                        +{investment.assets.length - 3} more
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="col-span-2 flex justify-end">
-                <button
-                  onClick={() => {
-                    setSelectedUser(investment);
-                    setShowInvestmentsModal(true);
-                  }}
-                  className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
-                >
-                  View Details
-                </button>
-              </div>
+                ))
+              )}
             </div>
           </div>
-        ))
-      )}
-    </div>
-  </div>
-)}
+        ) : (
+          /* Investments Table */
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl overflow-hidden">
+            {/* Table Header - Desktop Only */}
+            <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 text-gray-400 text-sm font-semibold border-b border-gray-700/50">
+              <div className="col-span-4">USER</div>
+              <div className="col-span-3 text-center">INVESTMENT SUMMARY</div>
+              <div className="col-span-3 text-center">ASSETS</div>
+              <div className="col-span-2 text-right">ACTIONS</div>
+            </div>
+
+            {/* Table Body */}
+            <div className="divide-y divide-gray-700/50">
+              {investmentsLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                </div>
+              ) : displayInvestments.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-gray-500 text-lg mb-2">
+                    No investments found
+                  </div>
+                  <div className="text-gray-400 text-sm">
+                    {searchTerm ? "Try adjusting your search criteria" : "No users have made investments yet"}
+                  </div>
+                </div>
+              ) : (
+                displayInvestments.map((investment) => (
+                  <div
+                    key={investment.user_id}
+                    className="p-4 lg:p-6 hover:bg-gray-700/20 transition-all duration-200"
+                  >
+                    {/* Mobile Layout */}
+                    <div className="lg:hidden space-y-4">
+                      {/* Header Section */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                            {investment.user_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold text-sm truncate">
+                              {investment.user_name}
+                            </h3>
+                            <p className="text-gray-400 text-xs truncate">
+                              {investment.user_email}
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                              ID: {investment.user_id}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Investment Summary */}
+                      <div className="bg-gray-700/30 rounded-lg p-3">
+                        <div className="text-center">
+                          <div className="text-white font-semibold text-lg">
+                            {formatCurrency(investment.total_investment)}
+                          </div>
+                          <div className="text-green-400 text-sm">
+                            Total Investment
+                          </div>
+                          <div className="text-gray-400 text-xs mt-1">
+                            {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Assets Preview */}
+                      <div className="space-y-2">
+                        <p className="text-gray-400 text-xs font-medium">Assets</p>
+                        <div className="flex flex-wrap gap-2">
+                          {investment.assets.slice(0, 3).map((asset) => (
+                            <div
+                              key={asset.id}
+                              className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-2 py-1.5 border border-gray-600/50 flex-1 min-w-0"
+                            >
+                              <img
+                                src={getImageSrc(asset)}
+                                alt={asset.title}
+                                className="w-5 h-5 rounded object-cover flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-white text-xs font-medium truncate block">
+                                  {asset.title}
+                                </span>
+                                <span className="text-green-400 text-xs">
+                                  {asset.invested_shares}s
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          {investment.assets.length > 3 && (
+                            <div className="bg-gray-600/50 rounded-lg px-3 py-1.5 border border-gray-500/50">
+                              <span className="text-gray-400 text-xs">
+                                +{investment.assets.length - 3} more
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="pt-2 border-t border-gray-600/30">
+                        <button
+                          onClick={() => handleViewUserInvestments(investment)}
+                          className="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+                      {/* User Info */}
+                      <div className="col-span-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-semibold text-lg">
+                            {investment.user_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-semibold truncate">
+                              {investment.user_name}
+                            </h3>
+                            <p className="text-gray-400 text-sm truncate">
+                              {investment.user_email}
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                              ID: {investment.user_id}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Investment Summary */}
+                      <div className="col-span-3 text-center">
+                        <div className="text-white font-semibold text-lg">
+                          {formatCurrency(investment.total_investment)}
+                        </div>
+                        <div className="text-green-400 text-sm">
+                          Total Investment
+                        </div>
+                        <div className="text-gray-400 text-xs mt-1">
+                          {investment.assets.length} asset{investment.assets.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+
+                      {/* Assets Preview */}
+                      <div className="col-span-3">
+                        <div className="flex flex-wrap gap-2">
+                          {investment.assets.slice(0, 3).map((asset) => (
+                            <div
+                              key={asset.id}
+                              className="flex items-center gap-2 bg-gray-700/50 rounded-lg px-3 py-2 border border-gray-600/50"
+                            >
+                              <img
+                                src={getImageSrc(asset)}
+                                alt={asset.title}
+                                className="w-6 h-6 rounded object-cover"
+                              />
+                              <span className="text-white text-xs font-medium truncate max-w-20">
+                                {asset.title}
+                              </span>
+                              <span className="text-green-400 text-xs">
+                                {asset.invested_shares}s
+                              </span>
+                            </div>
+                          ))}
+                          {investment.assets.length > 3 && (
+                            <div className="bg-gray-600/50 rounded-lg px-3 py-2 border border-gray-500/50">
+                              <span className="text-gray-400 text-xs">
+                                +{investment.assets.length - 3} more
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-2 flex justify-end">
+                        <button
+                          onClick={() => handleViewUserInvestments(investment)}
+                          className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Royalty Distribution Modal */}
         {showRoyaltyModal && (
@@ -1178,14 +1216,14 @@ const fetchUserInvestments = async (userId: string) => {
         )}
 
         {/* User Investments Detail Modal */}
-        {showInvestmentsModal && selectedUser && (
+        {showInvestmentsModal && selectedUser && userInvestmentDetails && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-800 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">{selectedUser.user_name}'s Investments</h2>
-                  <p className="text-gray-400">{selectedUser.user_email}</p>
+                  <h2 className="text-2xl font-bold text-white">{selectedUser.user_name}'s Investment Portfolio</h2>
+                  <p className="text-gray-400">{selectedUser.user_email} • User ID: {selectedUser.user_id}</p>
                 </div>
                 <button
                   onClick={() => setShowInvestmentsModal(false)}
@@ -1200,64 +1238,152 @@ const fetchUserInvestments = async (userId: string) => {
               {/* Modal Content */}
               <div className="p-6">
                 {/* Investment Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                   <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4">
-                    <div className="text-blue-400 text-sm font-medium">Total Investment</div>
-                    <div className="text-white font-bold text-xl">{formatCurrency(selectedUser.total_investment)}</div>
+                    <div className="text-blue-400 text-sm font-medium">Total Investments</div>
+                    <div className="text-white font-bold text-xl">{userInvestmentDetails.summary.total_investments}</div>
                   </div>
                   <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4">
-                    <div className="text-green-400 text-sm font-medium">Assets Owned</div>
-                    <div className="text-white font-bold text-xl">{selectedUser.assets.length}</div>
+                    <div className="text-green-400 text-sm font-medium">Total Invested</div>
+                    <div className="text-white font-bold text-xl">
+                      {formatCurrency(userInvestmentDetails.summary.total_invested_amount)}
+                    </div>
                   </div>
                   <div className="bg-purple-500/20 border border-purple-500/30 rounded-xl p-4">
-                    <div className="text-purple-400 text-sm font-medium">Total Shares</div>
+                    <div className="text-purple-400 text-sm font-medium">Current Value</div>
                     <div className="text-white font-bold text-xl">
-                      {selectedUser.assets.reduce((sum: number, asset: Asset) => sum + (asset.invested_shares || 0), 0)}
+                      {formatCurrency(userInvestmentDetails.summary.total_current_value)}
+                    </div>
+                  </div>
+                  <div className={`border rounded-xl p-4 ${
+                    userInvestmentDetails.summary.total_profit_loss >= 0 
+                      ? 'bg-green-500/20 border-green-500/30' 
+                      : 'bg-red-500/20 border-red-500/30'
+                  }`}>
+                    <div className={`text-sm font-medium ${
+                      userInvestmentDetails.summary.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      Total Profit/Loss
+                    </div>
+                    <div className={`font-bold text-xl ${
+                      userInvestmentDetails.summary.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {formatCurrency(userInvestmentDetails.summary.total_profit_loss)}
+                    </div>
+                    <div className={`text-xs ${
+                      userInvestmentDetails.summary.total_profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {userInvestmentDetails.summary.average_roi.toFixed(2)}% ROI
                     </div>
                   </div>
                 </div>
 
-                {/* Assets List */}
+                {/* Investment Details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white mb-4">Invested Assets</h3>
-                  {selectedUser.assets.map((asset: Asset) => (
-                    <div
-                      key={asset.id}
-                      className="flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50 hover:bg-gray-700/50 transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        <img
-                          src={getImageSrc(asset)}
-                          alt={asset.title}
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
-                        <div className="flex-1">
-                          <h4 className="text-white font-semibold">{asset.title}</h4>
-                          <p className="text-gray-400 text-sm">{asset.artist}</p>
-                          <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                            <span className="capitalize">{asset.type}</span>
-                            <span>•</span>
-                            <span>{asset.invested_shares} shares</span>
-                            <span>•</span>
-                            <span>{formatCurrency(asset.current_value || '0')}</span>
+                  <h3 className="text-lg font-semibold text-white mb-4">Investment Details</h3>
+                  
+                  {investmentDetailsLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                    </div>
+                  ) : userInvestmentDetails.investments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No investment details found.
+                    </div>
+                  ) : (
+                    userInvestmentDetails.investments.map((investment) => (
+                      <div
+                        key={investment.id}
+                        className="bg-gray-700/30 rounded-xl border border-gray-600/50 p-4 hover:bg-gray-700/50 transition-all duration-200"
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          {/* Asset Info */}
+                          <div className="flex items-center gap-4 flex-1">
+                            <img
+                              src={getImageSrc(investment)}
+                              alt={investment.asset_title}
+                              className="w-16 h-16 rounded-lg object-cover"
+                            />
+                            <div className="flex-1">
+                              <h4 className="text-white font-semibold text-lg">{investment.asset_title}</h4>
+                              <p className="text-gray-400">{investment.asset_artist}</p>
+                              <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                                <span className="capitalize">{investment.asset_type}</span>
+                                <span>•</span>
+                                <span>Purchased: {formatDate(investment.purchased_at)}</span>
+                                <span>•</span>
+                                <span className={`${
+                                  investment.asset_status === 'active' ? 'text-green-400' : 'text-red-400'
+                                }`}>
+                                  {investment.asset_status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Investment Details */}
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                            <div>
+                              <div className="text-gray-400 text-sm">Shares</div>
+                              <div className="text-white font-semibold">{investment.quantity}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-400 text-sm">Buy Price</div>
+                              <div className="text-white font-semibold">{formatCurrency(investment.purchase_price)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-400 text-sm">Current Price</div>
+                              <div className="text-white font-semibold">{formatCurrency(investment.current_price)}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-400 text-sm">Current Value</div>
+                              <div className="text-white font-semibold">{formatCurrency(investment.current_value)}</div>
+                            </div>
+                          </div>
+
+                          {/* Performance */}
+                          <div className="text-center">
+                            <div className="text-gray-400 text-sm">Profit/Loss</div>
+                            <div className={`font-semibold text-lg ${
+                              investment.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {formatCurrency(investment.profit_loss)}
+                            </div>
+                            <div className={`text-sm ${
+                              investment.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {((investment.profit_loss / investment.total_investment) * 100).toFixed(2)}%
+                            </div>
                           </div>
                         </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-600/50">
+                          <button
+                            onClick={() => {
+                              setSelectedAsset({
+                                id: investment.asset_id,
+                                title: investment.asset_title,
+                                artist: investment.asset_artist,
+                                type: investment.asset_type as 'single' | 'basket',
+                                total_shares: 0,
+                                available_shares: 0,
+                                price: investment.current_price.toString(),
+                                image_base64: investment.image_base64,
+                                image_url: investment.image_url
+                              });
+                              setDistributionData(prev => ({ ...prev, asset_id: investment.asset_id }));
+                              setShowInvestmentsModal(false);
+                              setShowRoyaltyModal(true);
+                            }}
+                            className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
+                          >
+                            Distribute Royalties
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedAsset(asset);
-                            setDistributionData(prev => ({ ...prev, asset_id: asset.id }));
-                            setShowInvestmentsModal(false);
-                            setShowRoyaltyModal(true);
-                          }}
-                          className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300 border border-purple-500/30 hover:border-purple-500/50 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200"
-                        >
-                          Distribute Royalties
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>

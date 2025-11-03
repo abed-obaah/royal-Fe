@@ -75,6 +75,35 @@ interface OrderPagination {
   };
 }
 
+interface UserInvestment {
+  id: number;
+  asset_id: number;
+  asset_title: string;
+  asset_artist: string;
+  asset_type: string;
+  purchase_price: number;
+  current_price: number;
+  quantity: number;
+  current_value: number;
+  total_investment: number;
+  profit_loss: number;
+  image_url: string | null;
+  image_base64: string | null;
+  purchased_at: string;
+  asset_status: string;
+}
+
+interface UserInvestmentDetails {
+  investments: UserInvestment[];
+  summary: {
+    total_investments: number;
+    total_current_value: number;
+    total_invested_amount: number;
+    total_profit_loss: number;
+    average_roi: number;
+  };
+}
+
 interface OrderState {
   portfolio: Portfolio | null;
   sellOrders: Order[];
@@ -82,8 +111,11 @@ interface OrderState {
   orderHistory: Order[];
   currentOrder: Order | null;
   orderPagination: OrderPagination | null;
+  userInvestmentDetails: UserInvestmentDetails | null;
   loading: boolean;
+  investmentDetailsLoading: boolean;
   error: string | null;
+  investmentDetailsError: string | null;
 }
 
 const initialState: OrderState = {
@@ -93,8 +125,11 @@ const initialState: OrderState = {
   orderHistory: [],
   currentOrder: null,
   orderPagination: null,
+  userInvestmentDetails: null,
   loading: false,
+  investmentDetailsLoading: false,
   error: null,
+  investmentDetailsError: null,
 };
 
 // Async thunks
@@ -207,6 +242,19 @@ export const fetchOrderDetails = createAsyncThunk(
   }
 );
 
+// User Investment Details thunk
+export const fetchUserInvestmentDetails = createAsyncThunk(
+  'order/fetchUserInvestmentDetails',
+  async (userId: number, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/admin/users/${userId}/investment-details`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user investment details');
+    }
+  }
+);
+
 const orderSlice = createSlice({
   name: 'order',
   initialState,
@@ -227,6 +275,10 @@ const orderSlice = createSlice({
     clearOrderHistory: (state) => {
       state.orderHistory = [];
       state.orderPagination = null;
+    },
+    clearUserInvestmentDetails: (state) => {
+      state.userInvestmentDetails = null;
+      state.investmentDetailsError = null;
     },
   },
   extraReducers: (builder) => {
@@ -350,6 +402,19 @@ const orderSlice = createSlice({
       .addCase(fetchOrderDetails.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+      // Fetch User Investment Details
+      .addCase(fetchUserInvestmentDetails.pending, (state) => {
+        state.investmentDetailsLoading = true;
+        state.investmentDetailsError = null;
+      })
+      .addCase(fetchUserInvestmentDetails.fulfilled, (state, action: PayloadAction<UserInvestmentDetails>) => {
+        state.investmentDetailsLoading = false;
+        state.userInvestmentDetails = action.payload;
+      })
+      .addCase(fetchUserInvestmentDetails.rejected, (state, action) => {
+        state.investmentDetailsLoading = false;
+        state.investmentDetailsError = action.payload as string;
       });
   },
 });
@@ -358,7 +423,8 @@ export const {
   clearError, 
   resetOrders, 
   clearCurrentOrder, 
-  clearOrderHistory 
+  clearOrderHistory,
+  clearUserInvestmentDetails
 } = orderSlice.actions;
 
 export default orderSlice.reducer;

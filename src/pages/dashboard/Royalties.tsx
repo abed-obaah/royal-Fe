@@ -16,9 +16,24 @@ export default function RewardPage() {
   const [activeTab, setActiveTab] = useState<'summary' | 'history'>('summary');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'processed'>('all');
 
-  // Fixed: Safe access with fallback values
-  const balance = royaltySummary ? `$${(royaltySummary.total_earned || 0).toFixed(2)}` : "$0.00";
-  const pendingBalance = royaltySummary ? `$${(royaltySummary.pending_earnings || 0).toFixed(2)}` : "$0.00";
+  // Calculate lifetime earnings by summing up all asset earnings
+  const lifetimeEarnings = royaltySummary?.earnings_by_asset?.reduce((total, asset) => {
+    return total + (parseFloat(asset.total_earnings?.toString()) || 0);
+  }, 0) || 0;
+
+  // Count assets that have actually paid out (have earnings > 0)
+  const assetsPaidOut = royaltySummary?.earnings_by_asset?.filter(asset => 
+    (parseFloat(asset.total_earnings?.toString()) || 0) > 0
+  ).length || 0;
+
+  // Calculate actual payments received from royalty history
+  const actualPaymentsReceived = royaltyHistory.filter(royalty => 
+    royalty.status === 'processed'
+  ).length;
+
+  // Display raw values without formatting
+  const balance = lifetimeEarnings.toString();
+  const pendingBalance = royaltySummary ? royaltySummary.pending_earnings?.toString() || '0' : "0";
 
   useEffect(() => {
     loadRoyaltyData();
@@ -40,9 +55,14 @@ export default function RewardPage() {
       
       setRoyaltySummary(summaryData);
       setRoyaltyHistory(historyData.royalties);
+
+      // Debug logging to see what data we're getting
+      console.log('Summary data:', summaryData);
+      console.log('History data:', historyData);
+      console.log('Processed royalties count:', historyData.royalties.filter(r => r.status === 'processed').length);
+      
     } catch (error) {
       console.error('Error loading royalty data:', error);
-      // Provide a more complete fallback structure
       setRoyaltySummary({
         total_earned: 0,
         pending_earnings: 0,
@@ -55,7 +75,6 @@ export default function RewardPage() {
     }
   };
 
-  // Rest of your component remains the same...
   const formatPeriod = (period: string) => {
     if (period.includes('-Q')) {
       const [year, quarter] = period.split('-Q');
@@ -125,10 +144,10 @@ export default function RewardPage() {
                         <span className="truncate">Lifetime Earnings</span>
                       </p>
                       <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold break-words leading-tight">
-                        {showBalance ? balance : "********"}
+                        ${showBalance ? balance : "********"}
                       </p>
                       <p className="text-xs sm:text-sm text-blue-200 mt-1 md:mt-2">
-                        {royaltySummary?.total_earnings_count || 0} payments received
+                        {actualPaymentsReceived} payments received • {assetsPaidOut} assets paid out
                       </p>
                     </div>
 
@@ -146,7 +165,7 @@ export default function RewardPage() {
                 </div>
 
                 {/* Pending Earnings Card */}
-                <div className="relative bg-[#0A2E5C] rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 text-white min-h-[140px] sm:min-h-[150px] md:min-h-[160px] lg:min-h-[180px]">
+                {/* <div className="relative bg-[#0A2E5C] rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 text-white min-h-[140px] sm:min-h-[150px] md:min-h-[160px] lg:min-h-[180px]">
                   <div className="absolute -top-2 sm:-top-3 md:-top-4 left-1/2 -translate-x-1/2 bg-yellow-600 px-3 sm:px-4 md:px-5 py-1 rounded-t-lg sm:rounded-t-xl text-xs font-medium shadow whitespace-nowrap">
                     Pending Royalties
                   </div>
@@ -168,9 +187,10 @@ export default function RewardPage() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
 
+              {/* Rest of your component remains the same... */}
               {/* Tabs */}
               <div className="bg-gray-700/50 rounded-lg p-1">
                 <div className="flex space-x-1">
@@ -226,7 +246,7 @@ export default function RewardPage() {
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">
                             <p className="font-semibold text-white text-sm sm:text-base">
-                              ${(assetEarning.total_earnings || 0).toFixed(2)}
+                              ${assetEarning.total_earnings?.toString() || '0'}
                             </p>
                             <p className="text-xs text-green-400">Total Earned</p>
                           </div>
@@ -305,9 +325,9 @@ export default function RewardPage() {
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">
                             <p className="font-semibold text-white text-xs sm:text-sm md:text-base">
-                              ${(royalty.amount || 0).toFixed(2)}
+                              ${royalty.amount?.toString() || '0'}
                             </p>
-                            <p className="text-xs text-blue-400">{royalty.royalty_rate}% rate</p>
+                            <p className="text-xs text-blue-400">{royalty.royalty_rate?.toString() || '0'}% rate</p>
                           </div>
                         </div>
                       ))}
@@ -423,13 +443,13 @@ export default function RewardPage() {
                     <div>
                       <p className="text-gray-400">Total Payments</p>
                       <p className="text-white font-semibold text-sm sm:text-base">
-                        {royaltySummary.total_earnings_count || 0}
+                        {actualPaymentsReceived}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-400">Assets Earning</p>
                       <p className="text-white font-semibold text-sm sm:text-base">
-                        {royaltySummary.earnings_by_asset?.length || 0}
+                        {assetsPaidOut}
                       </p>
                     </div>
                   </div>

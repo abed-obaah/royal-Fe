@@ -295,10 +295,19 @@ export default function Login() {
             />
           </div>
           
-          {/* Optional: Add welcome text for larger screens */}
-          <div className="hidden xl:block mt-6">
-            <h2 className="text-2xl font-light">Welcome to RoyaFi</h2>
-            <p className="text-lg mt-2 opacity-90">Your financial future starts here</p>
+          {/* Logo for mobile - shown in brand area */}
+          <div className="lg:hidden flex items-center justify-center mb-4">
+            <img
+              src={logo}
+              alt="RoyaFi Logo"
+              className="h-20 w-20 object-contain"
+            />
+          </div>
+          
+          {/* Welcome text - shown on all screens */}
+          <div className="mt-4 lg:mt-6">
+            <h2 className="text-xl sm:text-2xl font-light">Welcome to RoyaFi</h2>
+            <p className="text-base sm:text-lg mt-2 opacity-90">Your financial future starts here</p>
           </div>
         </div>
       </div>

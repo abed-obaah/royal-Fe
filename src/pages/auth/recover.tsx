@@ -5,6 +5,7 @@ import { Mail } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/RoyaFi_2.png";
+import { forgotPassword, ForgotPasswordRequest } from "@/api/auth";
 
 export default function Recover() {
   const [email, setEmail] = useState("");
@@ -28,15 +29,25 @@ export default function Recover() {
       setError("");
       setLoading(true);
       
-      // Simulate API call - replace with actual password recovery API
-      // await api.post('/password/recover', { email: email.trim() });
+      // Call the actual forgot password API
+      const requestData: ForgotPasswordRequest = {
+        email: email.trim()
+      };
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await forgotPassword(requestData);
       
       setEmailSubmitted(true);
-    } catch (err) {
-      setError("Failed to send recovery email. Please try again.");
+    } catch (err: any) {
+      console.error("Password recovery error:", err);
+      
+      // Handle different error response formats
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to send recovery email. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,7 +82,7 @@ export default function Recover() {
               {!emailSubmitted ? (
                 <>
                   <p className="text-gray-400 text-sm sm:text-base mb-4 text-center lg:text-left">
-                    Enter your email address and we'll send you instructions to reset your password.
+                    Enter your email address and we'll send you an OTP code to reset your password.
                   </p>
                   
                   {/* Email Field */}
@@ -84,6 +95,11 @@ export default function Recover() {
                       onChange={(e) => setEmail(e.target.value)}
                       className="bg-transparent border-none text-white focus:ring-0 h-full flex-1 placeholder-gray-400 text-sm sm:text-base"
                       disabled={loading}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleContinue();
+                        }
+                      }}
                     />
                   </div>
 
@@ -110,10 +126,10 @@ export default function Recover() {
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Sending...
+                            Sending OTP...
                           </span>
                         ) : (
-                          "Send Recovery Email"
+                          "Send OTP Code"
                         )}
                       </Button>
 
@@ -143,30 +159,41 @@ export default function Recover() {
                   </h2>
                   
                   <p className="text-gray-300 text-sm sm:text-base leading-relaxed">
-                    If an account exists with <span className="text-blue-300 font-medium">{email}</span>, 
-                    we've sent password recovery instructions to your email address.
+                    We've sent a 6-digit OTP code to <span className="text-blue-300 font-medium">{email}</span>. 
+                    Use this code to reset your password.
                   </p>
                   
                   <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mt-4">
                     <p className="text-blue-300 text-xs sm:text-sm">
-                      💡 <strong>Tip:</strong> Check your spam folder if you don't see the email within a few minutes.
+                      ⚡ <strong>Quick Tip:</strong> The OTP code is valid for 15 minutes. Check your spam folder if you don't see it.
                     </p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-4">
+                  <div className="pt-2">
+                    <Link to="/reset-password" className="w-full sm:w-auto">
+                      <Button
+                        className="hover:bg-[#20475bcf] w-full sm:w-auto px-8 h-11 text-sm sm:text-base inline-flex items-center justify-center rounded-full bg-[#20475a] font-medium text-[#009ad2] transition-colors duration-200"
+                      >
+                        Enter OTP Code
+                      </Button>
+                    </Link>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-2">
                     <Button
                       onClick={handleReset}
-                      className="hover:bg-[#20475bcf] w-full sm:w-auto px-6 h-11 text-sm sm:text-base inline-flex items-center justify-center rounded-full bg-[#20475a] font-medium text-[#009ad2] transition-colors duration-200"
+                      variant="outline"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700 rounded-full w-full sm:w-auto px-6 h-10 text-sm transition-colors duration-200"
                     >
-                      Reset Another Email
+                      Use Different Email
                     </Button>
                     
                     <Link to="/" className="w-full sm:w-auto">
                       <Button
                         variant="secondary"
-                        className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-full w-full sm:w-auto px-6 h-11 text-sm sm:text-base transition-colors duration-200"
+                        className="bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-full w-full sm:w-auto px-6 h-10 text-sm transition-colors duration-200"
                       >
-                        Return to Login
+                        Back to Login
                       </Button>
                     </Link>
                   </div>
@@ -214,14 +241,14 @@ export default function Recover() {
                   <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">🔒</div>
                   <div>
                     <p className="font-semibold">Secure Recovery</p>
-                    <p className="opacity-90">We use encrypted email links to protect your account</p>
+                    <p className="opacity-90">We use OTP verification to protect your account</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">⏱️</div>
                   <div>
-                    <p className="font-semibold">Quick Process</p>
-                    <p className="opacity-90">Recovery links expire after 1 hour for security</p>
+                    <p className="font-semibold">Time-Sensitive</p>
+                    <p className="opacity-90">OTP codes expire after 15 minutes for security</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -240,11 +267,11 @@ export default function Recover() {
               <div className="grid grid-cols-1 gap-2 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-xs">🔒</span>
-                  <span>Encrypted recovery links</span>
+                  <span>OTP verification system</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs">⏱️</span>
-                  <span>Links expire in 1 hour</span>
+                  <span>OTP valid for 15 minutes</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs">📧</span>

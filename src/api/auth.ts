@@ -1,14 +1,44 @@
 // src/api/auth.ts
 import api from "../services/axios";
 
+// -------------------- Password Recovery --------------------
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  code: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export const forgotPassword = async (data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> => {
+  const response = await api.post<ForgotPasswordResponse>("forgot-password", data);
+  return response.data;
+};
+
+export const resetPassword = async (data: ResetPasswordRequest): Promise<ResetPasswordResponse> => {
+  const response = await api.post<ResetPasswordResponse>("reset-password", data);
+  return response.data;
+};
+
 // -------------------- Register --------------------
 export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
   password_confirmation: string;
-  country?: string; // Optional
-  referral_code?: string; // Add this line
+  country?: string;
+  referral_code?: string;
 }
 
 export interface RegisterResponse {
@@ -29,7 +59,6 @@ export interface LoginRequest {
   password: string;
 }
 
-// Legacy Login Response (for backward compatibility)
 export interface LegacyLoginResponse {
   success: boolean;
   data: {
@@ -46,7 +75,6 @@ export interface LegacyLoginResponse {
   };
 }
 
-// New 2FA Login Responses
 export interface Login2FARequiredResponse {
   message: string;
   twofa_required: true;
@@ -72,23 +100,19 @@ export interface LoginSuccessResponse {
 
 export type LoginResponse2FA = Login2FARequiredResponse | LoginSuccessResponse;
 
-// Unified login function that handles both response formats
 export const login = async (credentials: LoginRequest): Promise<LoginResponse2FA | LegacyLoginResponse> => {
   const response = await api.post("login", credentials);
   return response.data;
 };
 
-// Helper function to check if response is 2FA required
 export const is2FARequired = (response: any): response is Login2FARequiredResponse => {
   return response && response.twofa_required === true;
 };
 
-// Helper function to check if response is legacy format
 export const isLegacyResponse = (response: any): response is LegacyLoginResponse => {
   return response && response.success !== undefined && response.data !== undefined;
 };
 
-// Helper function to check if response is successful login (new format)
 export const isLoginSuccess = (response: any): response is LoginSuccessResponse => {
   return response && response.twofa_required === false && response.token !== undefined;
 };
@@ -165,7 +189,7 @@ export interface VerifyEmailResponse {
       updated_at: string;
       email_verified_at: string;
     };
-    token: string; // Token should be returned after successful verification
+    token: string;
   };
 }
 

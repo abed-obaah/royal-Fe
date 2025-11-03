@@ -10,6 +10,7 @@ import GuestRoute from "./components/GuestRoute";
 
 import Login from "./pages/auth/login";
 import Recover from "./pages/auth/recover";
+import ResetPassword from "./components/ResetPassword"; // Add this import
 import Register from "./pages/auth/register";
 import Dashboard from "./pages/dashboard";
 import Admin from "./pages/admin";
@@ -31,6 +32,7 @@ export default function App() {
         {/* Guest-only routes */}
         <Route path="/" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/recover" element={<GuestRoute><Recover /></GuestRoute>} />
+        <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
         <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
         <Route path="/verify-email" element={<GuestRoute><VerifyEmail /></GuestRoute>} />
 

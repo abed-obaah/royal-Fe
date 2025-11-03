@@ -28,7 +28,8 @@ import {
   Users,
   AlertTriangle,
   CheckCircle,
-  Info
+  Info,
+  Circle
 } from "lucide-react";
 import { 
   adminUsersApi, 
@@ -190,6 +191,45 @@ export default function UserManagementExtended() {
       setSelectedUser(updatedUser);
     }
   };
+
+  // Format last login time
+  const formatLastLogin = (user: AdminUser) => {
+    if (!user.last_login_at) return 'Never';
+    
+    const lastLogin = new Date(user.last_login_at);
+    const now = new Date();
+    const diffMs = now.getTime() - lastLogin.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return lastLogin.toLocaleDateString();
+  };
+
+  // Check if user is online (active within last 5 minutes)
+  const isUserOnline = (user: AdminUser) => {
+    if (!user.last_login_at) return false;
+    
+    const lastLogin = new Date(user.last_login_at);
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return lastLogin > fiveMinutesAgo;
+  };
+
+  // Filter users based on search
+  const filteredUsers = users.filter((user) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      user.id.toString().includes(query)
+    );
+  });
 
   // Update user profile
   const handleUpdateProfile = async (userId: number) => {
@@ -643,23 +683,6 @@ export default function UserManagementExtended() {
     setSelectedUsers([]);
   };
 
-  // Filter users based on search
-  const filteredUsers = users.filter((user) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      user.name.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query) ||
-      user.id.toString().includes(query)
-    );
-  });
-
-  // Load users on component mount
-  useEffect(() => {
-    fetchUsers();
-    fetchAllUsers();
-  }, []);
-
   // Get notification type icon and color
   const getNotificationTypeInfo = (type: string) => {
     switch (type) {
@@ -675,6 +698,12 @@ export default function UserManagementExtended() {
         return { icon: Info, color: 'text-gray-400', bgColor: 'bg-gray-900/20' };
     }
   };
+
+  // Load users on component mount
+  useEffect(() => {
+    fetchUsers();
+    fetchAllUsers();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#222629] text-white">
@@ -753,14 +782,28 @@ export default function UserManagementExtended() {
                     : "bg-gray-900 hover:bg-gray-800 border border-transparent hover:border-gray-700"
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-sm font-semibold flex-shrink-0">
-                  {user.name.split(" ").map((s) => s[0]).slice(0,2).join("")}
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                    {user.name.split(" ").map((s) => s[0]).slice(0,2).join("")}
+                  </div>
+                  {/* Online Status Indicator */}
+                  {isUserOnline(user) && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#222629]"></div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate text-sm">{user.name}</div>
+                      <div className="font-medium truncate text-sm flex items-center gap-2">
+                        {user.name}
+                        {isUserOnline(user) && (
+                          <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+                        )}
+                      </div>
                       <div className="text-xs text-gray-300 truncate">{user.email}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Last login: {formatLastLogin(user)}
+                      </div>
                     </div>
                     <MoreVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
@@ -776,6 +819,11 @@ export default function UserManagementExtended() {
                     }`}>
                       {user.status}
                     </span>
+                    {isUserOnline(user) && (
+                      <span className="px-1.5 py-0.5 rounded text-xs bg-green-900/50 text-green-300">
+                        Online
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -798,13 +846,24 @@ export default function UserManagementExtended() {
               {/* Header Section - Super Responsive */}
               <div className="flex flex-col xl:flex-row gap-6 items-start">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-1 min-w-0">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <div className="text-xl sm:text-2xl text-gray-400 font-semibold">
-                      {selectedUser.name.split(" ").map(n => n[0]).slice(0,2).join("")}
+                  <div className="relative">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0 shadow-lg">
+                      <div className="text-xl sm:text-2xl text-gray-400 font-semibold">
+                        {selectedUser.name.split(" ").map(n => n[0]).slice(0,2).join("")}
+                      </div>
                     </div>
+                    {/* Online Status Indicator */}
+                    {isUserOnline(selectedUser) && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#222629]"></div>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedUser.name}</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold truncate flex items-center gap-2">
+                      {selectedUser.name}
+                      {isUserOnline(selectedUser) && (
+                        <Circle className="w-3 h-3 fill-green-500 text-green-500" />
+                      )}
+                    </h2>
                     <p className="text-gray-400 truncate text-sm sm:text-base">{selectedUser.email}</p>
                     <p className="text-gray-400 text-xs sm:text-sm">ID: {selectedUser.id}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -920,7 +979,12 @@ export default function UserManagementExtended() {
                     <Calendar className="w-4 h-4" />
                     Last Login
                   </div>
-                  <div className="font-medium text-sm">{selectedUser.last_login}</div>
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    {formatLastLogin(selectedUser)}
+                    {isUserOnline(selectedUser) && (
+                      <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+                    )}
+                  </div>
                 </div>
                 <div className="bg-gray-900 p-4 rounded-lg text-sm border border-gray-800">
                   <div className="text-gray-400 flex items-center gap-2 mb-1">

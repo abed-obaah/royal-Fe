@@ -14,7 +14,9 @@ export interface AdminUser {
   invested_balance: number;
   total_balance: number;
   last_login: string;
+  last_login_at: string;
   registered: string;
+  is_online?: boolean;
 }
 
 export interface UserDetails {

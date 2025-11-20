@@ -29,7 +29,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
-  Circle
+  Circle,
+  Archive
 } from "lucide-react";
 import { 
   adminUsersApi, 
@@ -47,6 +48,7 @@ export default function UserManagementExtended() {
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [userInvestments, setUserInvestments] = useState<UserInvestment[]>([]);
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
+  const [userPassword, setUserPassword] = useState<string>(""); // Added password state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +74,13 @@ export default function UserManagementExtended() {
     reason: ""
   });
   
+  // Delete user state
+  const [deleteForm, setDeleteForm] = useState({
+    reason: "",
+    transfer_investments_to: "",
+    delete_investments: false
+  });
+  
   // Notification state
   const [notificationForm, setNotificationForm] = useState<SendNotificationRequest>({
     title: "",
@@ -84,7 +93,9 @@ export default function UserManagementExtended() {
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   
   const [showPassword, setShowPassword] = useState(false);
+  const [showUserPassword, setShowUserPassword] = useState(false); // Added for user password display
   const [actionLoading, setActionLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false); // Added for password loading state
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
 
   // Mobile/Tablet state
@@ -155,6 +166,22 @@ export default function UserManagementExtended() {
     }
   };
 
+  // Fetch user password
+  // Fetch user password (plain text)
+const fetchUserPassword = async (userId: number) => {
+  try {
+    setPasswordLoading(true);
+    const response = await adminUsersApi.getUserPasswordPlain(userId);
+    setUserPassword(response.password);
+  } catch (err: any) {
+    console.error("Error fetching user password:", err);
+    setError("Failed to load user password");
+    setUserPassword(""); // Clear password on error
+  } finally {
+    setPasswordLoading(false);
+  }
+};
+
   // Select user handler
   const selectUser = async (user: AdminUser) => {
     setSelectedUser(user);
@@ -177,6 +204,7 @@ export default function UserManagementExtended() {
     }
     
     await fetchUserDetails(user.id);
+    await fetchUserPassword(user.id); // Fetch password when user is selected
   };
 
   // Update local users state after changes
@@ -189,6 +217,18 @@ export default function UserManagementExtended() {
     
     if (selectedUser && selectedUser.id === updatedUser.id) {
       setSelectedUser(updatedUser);
+    }
+  };
+
+  // Remove user from local state after deletion
+  const removeUserFromState = (userId: number) => {
+    setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+    if (selectedUser && selectedUser.id === userId) {
+      setSelectedUser(null);
+      setUserDetails(null);
+      setUserInvestments([]);
+      setUserNotifications([]);
+      setUserPassword(""); // Clear password when user is deleted
     }
   };
 
@@ -230,6 +270,71 @@ export default function UserManagementExtended() {
       user.id.toString().includes(query)
     );
   });
+
+  // Delete user account
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      setActionLoading(true);
+      setError(null);
+
+      const deleteData: any = {
+        reason: deleteForm.reason || "Deleted by admin"
+      };
+
+      // Add transfer options if specified
+      if (deleteForm.transfer_investments_to) {
+        deleteData.transfer_investments_to = parseInt(deleteForm.transfer_investments_to);
+      } else if (deleteForm.delete_investments) {
+        deleteData.delete_investments = true;
+      }
+
+      const response = await adminUsersApi.deleteUser(userId, deleteData);
+      
+      // Remove user from local state
+      removeUserFromState(userId);
+      
+      setModal(null);
+      setDeleteForm({
+        reason: "",
+        transfer_investments_to: "",
+        delete_investments: false
+      });
+      
+      setError(`User deleted successfully: ${response.message}`);
+      
+    } catch (err: any) {
+      setError("Failed to delete user");
+      console.error("Error deleting user:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Force delete user (permanent)
+  const handleForceDeleteUser = async (userId: number) => {
+    try {
+      setActionLoading(true);
+      setError(null);
+
+      if (!window.confirm("Are you absolutely sure? This will PERMANENTLY delete the user and all their data. This action cannot be undone!")) {
+        setActionLoading(false);
+        return;
+      }
+
+      const response = await adminUsersApi.forceDeleteUser(userId);
+      
+      // Remove user from local state
+      removeUserFromState(userId);
+      
+      setError(`User permanently deleted: ${response.message}`);
+      
+    } catch (err: any) {
+      setError("Failed to force delete user");
+      console.error("Error force deleting user:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Update user profile
   const handleUpdateProfile = async (userId: number) => {
@@ -901,6 +1006,22 @@ export default function UserManagementExtended() {
                         <Bell className="w-4 h-4" />
                         Send Notification
                       </button>
+                      {/* Delete User Button */}
+                      <button 
+                        onClick={() => { 
+                          setModal("deleteUser"); 
+                          setDeleteForm({
+                            reason: "",
+                            transfer_investments_to: "",
+                            delete_investments: false
+                          });
+                        }} 
+                        className="px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                        disabled={actionLoading}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete User
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -964,6 +1085,72 @@ export default function UserManagementExtended() {
                   </div>
                 </div>
               </div>
+
+              {/* Password Display Section - NEW SECTION */}
+              {/* Password Display Section */}
+<div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
+  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+    <h4 className="font-semibold flex items-center gap-2">
+      <Key className="w-5 h-5" />
+      Password (Plain Text)
+    </h4>
+    <div className="flex gap-2">
+      <button
+        onClick={() => setShowUserPassword(!showUserPassword)}
+        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm flex items-center gap-2 transition-colors"
+        disabled={passwordLoading || !userPassword}
+      >
+        {showUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        {showUserPassword ? "Hide" : "Show"} Password
+      </button>
+      <button
+        onClick={() => selectedUser && fetchUserPassword(selectedUser.id)}
+        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm flex items-center gap-2 transition-colors"
+        disabled={passwordLoading || !selectedUser}
+      >
+        <RefreshCw className={`w-4 h-4 ${passwordLoading ? 'animate-spin' : ''}`} />
+        Refresh
+      </button>
+    </div>
+  </div>
+  
+  <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+    {passwordLoading ? (
+      <div className="flex items-center justify-center gap-2 text-gray-400">
+        <RefreshCw className="w-4 h-4 animate-spin" />
+        Loading password...
+      </div>
+    ) : userPassword ? (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-400">Current Password:</span>
+          <span className={`font-mono text-sm ${showUserPassword ? 'text-white' : 'text-gray-500'}`}>
+            {showUserPassword ? userPassword : '•'.repeat(12)}
+          </span>
+        </div>
+        {showUserPassword && (
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-yellow-300 text-sm">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>Security Warning: Password is stored in plain text</span>
+            </div>
+          </div>
+        )}
+        {!showUserPassword && (
+          <div className="text-xs text-gray-500 text-center">
+            Click "Show Password" to reveal the actual password
+          </div>
+        )}
+      </div>
+    ) : (
+      <div className="text-gray-400 text-center py-2">
+        <Key className="w-8 h-8 mx-auto mb-2 opacity-50" />
+        <div>Password not loaded</div>
+        <div className="text-sm mt-1">Click refresh to load password</div>
+      </div>
+    )}
+  </div>
+</div>
 
               {/* Info Grid - Super Responsive */}
               <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1255,10 +1442,10 @@ export default function UserManagementExtended() {
                       <div className="text-gray-400 text-sm mb-2">Total Deposits</div>
                       <div className="text-lg font-semibold">${userDetails.statistics.financial?.total_deposits?.toFixed(2) || '0.00'}</div>
                     </div>
-                    <div className="text-center p-4 bg-gray-800 rounded-lg border border-gray-700">
+                    {/* <div className="text-center p-4 bg-gray-800 rounded-lg border border-gray-700">
                       <div className="text-gray-400 text-sm mb-2">Total Withdrawals</div>
                       <div className="text-lg font-semibold">${userDetails.statistics.financial?.total_withdrawals?.toFixed(2) || '0.00'}</div>
-                    </div>
+                    </div> */}
                     <div className="text-center p-4 bg-gray-800 rounded-lg border border-gray-700">
                       <div className="text-gray-400 text-sm mb-2">Total Orders</div>
                       <div className="text-lg font-semibold">{userDetails.statistics.activity?.total_orders || 0}</div>
@@ -1279,7 +1466,7 @@ export default function UserManagementExtended() {
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className={`bg-gray-900 rounded-xl shadow-2xl w-full max-h-[90vh] overflow-auto border border-gray-700 ${
-            modal === "sendNotification" ? "max-w-2xl" : "max-w-md"
+            modal === "sendNotification" || modal === "deleteUser" ? "max-w-2xl" : "max-w-md"
           }`}>
             <div className="p-4 border-b border-gray-800 flex justify-between items-center sticky top-0 bg-gray-900">
               <div className="text-lg font-semibold truncate">
@@ -1289,6 +1476,7 @@ export default function UserManagementExtended() {
                 {modal === "editWallet" && "Edit Wallet Balances"}
                 {modal === "transferInvestment" && "Transfer Investment"}
                 {modal === "sendNotification" && "Send Notification"}
+                {modal === "deleteUser" && "Delete User Account"}
               </div>
               <button onClick={() => setModal(null)} className="p-2 rounded-lg hover:bg-gray-800 flex-shrink-0 transition-colors" disabled={actionLoading}>
                 <X className="w-5 h-5" />
@@ -1296,6 +1484,166 @@ export default function UserManagementExtended() {
             </div>
 
             <div className="p-4 sm:p-6">
+              {/* DELETE USER MODAL */}
+              {modal === "deleteUser" && selectedUser && (
+                <>
+                  <div className="space-y-6">
+                    {/* Warning Message */}
+                    <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                        <h3 className="font-semibold text-red-300">Warning: User Account Deletion</h3>
+                      </div>
+                      <p className="text-sm text-red-200">
+                        You are about to delete the user account for <strong>{selectedUser.name}</strong> ({selectedUser.email}).
+                        This action will remove their profile, data, and access to the platform.
+                      </p>
+                    </div>
+
+                    {/* User Summary */}
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <h4 className="font-medium mb-3 text-sm">User Summary</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-400">Name:</span>
+                          <div className="font-medium">{selectedUser.name}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Email:</span>
+                          <div className="font-medium">{selectedUser.email}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Balance:</span>
+                          <div className="font-medium">${selectedUser.total_balance.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Investments:</span>
+                          <div className="font-medium">{userInvestments.length} items</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Delete Options */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm text-gray-400 block mb-2">Reason for Deletion</label>
+                        <input
+                          value={deleteForm.reason}
+                          onChange={(e) => setDeleteForm({...deleteForm, reason: e.target.value})}
+                          placeholder="Enter reason for deleting this user account"
+                          className="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:border-red-500 focus:outline-none transition-colors"
+                          disabled={actionLoading}
+                        />
+                      </div>
+
+                      {/* Investment Handling */}
+                      {userInvestments.length > 0 && (
+                        <div>
+                          <label className="text-sm text-gray-400 block mb-3">Handle Investments</label>
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                              <input
+                                type="radio"
+                                id="transferInvestments"
+                                name="investmentHandling"
+                                checked={!!deleteForm.transfer_investments_to}
+                                onChange={() => setDeleteForm({
+                                  ...deleteForm,
+                                  transfer_investments_to: allUsers.filter(u => u.id !== selectedUser.id)[0]?.id?.toString() || "",
+                                  delete_investments: false
+                                })}
+                                className="rounded-full border-gray-600 bg-gray-700 text-red-500 focus:ring-red-500"
+                              />
+                              <div className="flex-1">
+                                <label htmlFor="transferInvestments" className="text-sm font-medium block mb-1">
+                                  Transfer investments to another user
+                                </label>
+                                <select
+                                  value={deleteForm.transfer_investments_to}
+                                  onChange={(e) => setDeleteForm({
+                                    ...deleteForm,
+                                    transfer_investments_to: e.target.value,
+                                    delete_investments: false
+                                  })}
+                                  className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-sm focus:border-red-500 focus:outline-none"
+                                  disabled={actionLoading || !deleteForm.transfer_investments_to}
+                                >
+                                  <option value="">Select a user</option>
+                                  {allUsers
+                                    .filter(user => user.id !== selectedUser.id)
+                                    .map(user => (
+                                      <option key={user.id} value={user.id}>
+                                        {user.name} ({user.email})
+                                      </option>
+                                    ))
+                                  }
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                              <input
+                                type="radio"
+                                id="deleteInvestments"
+                                name="investmentHandling"
+                                checked={deleteForm.delete_investments}
+                                onChange={() => setDeleteForm({
+                                  ...deleteForm,
+                                  delete_investments: true,
+                                  transfer_investments_to: ""
+                                })}
+                                className="rounded-full border-gray-600 bg-gray-700 text-red-500 focus:ring-red-500"
+                              />
+                              <label htmlFor="deleteInvestments" className="text-sm font-medium flex-1">
+                                Delete all investments (permanent)
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Force Delete Option */}
+                    <div className="border-t border-gray-700 pt-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-sm text-red-400">Permanent Deletion</div>
+                          <div className="text-xs text-gray-400">
+                            Completely remove user and all associated data (irreversible)
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleForceDeleteUser(selectedUser.id)}
+                          className="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                          disabled={actionLoading}
+                        >
+                          <Archive className="w-4 h-4" />
+                          Force Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2 mt-6">
+                    <button 
+                      onClick={() => setModal(null)} 
+                      className="px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex-1"
+                      disabled={actionLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteUser(selectedUser.id)}
+                      className="px-4 py-3 bg-red-600 hover:bg-red-500 rounded-lg flex items-center gap-2 justify-center transition-colors flex-1"
+                      disabled={actionLoading || !deleteForm.reason || (userInvestments.length > 0 && !deleteForm.transfer_investments_to && !deleteForm.delete_investments)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {actionLoading ? "Deleting..." : "Delete User"}
+                    </button>
+                  </div>
+                </>
+              )}
+
               {/* SEND NOTIFICATION MODAL */}
               {modal === "sendNotification" && (
                 <>

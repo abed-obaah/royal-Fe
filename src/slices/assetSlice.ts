@@ -79,7 +79,7 @@ export const updateAssetPrice = createAsyncThunk(
   'assets/updateAssetPrice',
   async ({ id, priceData }: { id: number; priceData: UpdatePriceData }, { rejectWithValue }) => {
     try {
-      const response = await api.delete(`/assets/${id}/update-price`, { data: priceData });
+      const response = await api.put(`/assets/${id}/update-price`, priceData);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update asset price');
@@ -91,7 +91,7 @@ export const buyAssetShares = createAsyncThunk(
   'assets/buyAssetShares',
   async ({ id, shares }: { id: number; shares: number }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/assets/${id}/buy`, { shares });
+      const response = await api.post(`/assets/${id}/buy`, { shares: shares }); // ✅ Correct field name
       return {
         ...response.data,
         assetId: id,
@@ -136,12 +136,12 @@ const assetSlice = createSlice({
       })
       .addCase(fetchAssets.fulfilled, (state, action: PayloadAction<any>) => {
         state.loading = false;
-        state.assets = action.payload.data;
+        state.assets = action.payload.data || action.payload;
         state.pagination = {
-          current_page: action.payload.current_page,
-          last_page: action.payload.last_page,
-          per_page: action.payload.per_page,
-          total: action.payload.total,
+          current_page: action.payload.current_page || 1,
+          last_page: action.payload.last_page || 1,
+          per_page: action.payload.per_page || 15,
+          total: action.payload.total || action.payload.length,
         };
       })
       .addCase(fetchAssets.rejected, (state, action) => {
@@ -185,10 +185,20 @@ const assetSlice = createSlice({
       .addCase(bulkCreateAssets.fulfilled, (state, action: PayloadAction<{ assets: Asset[] }>) => {
         state.assets.push(...action.payload.assets);
       })
-      // Update asset price
-      .addCase(updateAssetPrice.fulfilled, (state, action: PayloadAction<any>) => {
-        // The price update is handled in the backend and affects portfolios
-        // We might want to refetch the asset to get updated data
+      // Buy asset shares
+      .addCase(buyAssetShares.pending, (state) => {
+        state.buyLoading = true;
+      })
+      .addCase(buyAssetShares.fulfilled, (state, action) => {
+        state.buyLoading = false;
+        // Update the asset's available shares
+        const assetIndex = state.assets.findIndex(asset => asset.id === action.payload.assetId);
+        if (assetIndex !== -1) {
+          state.assets[assetIndex].available_shares -= action.payload.sharesPurchased;
+        }
+      })
+      .addCase(buyAssetShares.rejected, (state) => {
+        state.buyLoading = false;
       });
   },
 });

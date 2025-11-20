@@ -8,7 +8,7 @@ import {
   DialogPanel,
   DialogTitle,
 } from "@headlessui/react";
-import { Plus, Pencil, Trash2, Music2, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Music2, Layers, Filter, X } from "lucide-react";
 import { 
   fetchBaskets, 
   createBasket, 
@@ -29,10 +29,21 @@ export default function BasketsDashboard() {
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [songsModalOpen, setSongsModalOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [selectedBasket, setSelectedBasket] = useState<Basket | null>(null);
   const [selectedSongs, setSelectedSongs] = useState<number[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   
+  // Filter states
+  const [filters, setFilters] = useState({
+    name: "",
+    risk_rating: "",
+    minPrice: "",
+    maxPrice: "",
+    minSongs: "",
+    maxSongs: "",
+  });
+
   const [form, setForm] = useState({
     name: "",
     risk_rating: "",
@@ -46,6 +57,44 @@ export default function BasketsDashboard() {
     dispatch(fetchBaskets());
     dispatch(fetchSongs());
   }, [dispatch]);
+
+  // Filter baskets based on criteria
+  const filteredBaskets = baskets.filter(basket => {
+    if (filters.name && !basket.name.toLowerCase().includes(filters.name.toLowerCase())) {
+      return false;
+    }
+    if (filters.risk_rating && basket.risk_rating !== filters.risk_rating) {
+      return false;
+    }
+    if (filters.minPrice && basket.price < parseFloat(filters.minPrice)) {
+      return false;
+    }
+    if (filters.maxPrice && basket.price > parseFloat(filters.maxPrice)) {
+      return false;
+    }
+    if (filters.minSongs && (basket.songs?.length || 0) < parseInt(filters.minSongs)) {
+      return false;
+    }
+    if (filters.maxSongs && (basket.songs?.length || 0) > parseInt(filters.maxSongs)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Check if any filters are active
+  const hasActiveFilters = Object.values(filters).some(value => value !== "");
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      name: "",
+      risk_rating: "",
+      minPrice: "",
+      maxPrice: "",
+      minSongs: "",
+      maxSongs: "",
+    });
+  };
 
   // Convert image to base64
   const convertImageToBase64 = (file: File): Promise<string> => {
@@ -170,13 +219,75 @@ export default function BasketsDashboard() {
       {/* Header */}
       <header className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">🎵 Baskets Manager</h1>
-        <button
-          onClick={() => handleOpen()}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow text-sm font-medium transition duration-200"
-        >
-          <Plus className="w-4 h-4" /> Add Basket
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setFilterOpen(true)}
+            disabled={loading}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed px-4 py-2 rounded-lg shadow text-sm font-medium transition-colors"
+          >
+            <Filter className="w-4 h-4" /> 
+            Filter
+            {hasActiveFilters && (
+              <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                !
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => handleOpen()}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow text-sm font-medium transition duration-200"
+          >
+            <Plus className="w-4 h-4" /> Add Basket
+          </button>
+        </div>
       </header>
+
+      {/* Active Filters Display */}
+      {hasActiveFilters && (
+        <div className="mb-4 p-3 bg-[#1b1b1b] rounded-lg border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-400 text-sm">Active filters:</span>
+              {filters.name && (
+                <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                  Name: {filters.name}
+                </span>
+              )}
+              {filters.risk_rating && (
+                <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                  Risk: {filters.risk_rating}
+                </span>
+              )}
+              {filters.minPrice && (
+                <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                  Min Price: ${filters.minPrice}
+                </span>
+              )}
+              {filters.maxPrice && (
+                <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                  Max Price: ${filters.maxPrice}
+                </span>
+              )}
+              {filters.minSongs && (
+                <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs">
+                  Min Songs: {filters.minSongs}
+                </span>
+              )}
+              {filters.maxSongs && (
+                <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs">
+                  Max Songs: {filters.maxSongs}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              <X className="w-4 h-4" /> Clear all
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {error && (
@@ -194,12 +305,12 @@ export default function BasketsDashboard() {
 
       {/* Baskets List */}
       <div className="space-y-6">
-        {baskets.length === 0 && !loading ? (
+        {filteredBaskets.length === 0 && !loading ? (
           <div className="text-gray-400 italic text-center py-20">
-            No baskets yet. Add one to get started.
+            {hasActiveFilters ? "No baskets match your filters." : "No baskets yet. Add one to get started."}
           </div>
         ) : (
-          baskets.map((basket) => (
+          filteredBaskets.map((basket) => (
             <div
               key={basket.id}
               className="bg-[#1b1b1b] rounded-xl shadow-lg border border-gray-800 hover:shadow-xl transition-shadow duration-300"
@@ -299,6 +410,118 @@ export default function BasketsDashboard() {
           ))
         )}
       </div>
+
+      {/* Filter Modal */}
+      <Dialog open={filterOpen} onClose={() => setFilterOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/70" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-[#1e1e1e] rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <DialogTitle className="text-xl font-bold text-white">
+                Filter Baskets
+              </DialogTitle>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Name contains:</label>
+                <input
+                  type="text"
+                  placeholder="Filter by basket name..."
+                  value={filters.name}
+                  onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                  className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Risk Rating</label>
+                <select
+                  value={filters.risk_rating}
+                  onChange={(e) => setFilters({ ...filters, risk_rating: e.target.value })}
+                  className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                >
+                  <option value="">All Risk Ratings</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Min Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Min price"
+                    value={filters.minPrice}
+                    onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Max Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Max price"
+                    value={filters.maxPrice}
+                    onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Min Songs</label>
+                  <input
+                    type="number"
+                    placeholder="Min songs"
+                    value={filters.minSongs}
+                    onChange={(e) => setFilters({ ...filters, minSongs: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Max Songs</label>
+                  <input
+                    type="number"
+                    placeholder="Max songs"
+                    value={filters.maxSongs}
+                    onChange={(e) => setFilters({ ...filters, maxSongs: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 transition-colors"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
 
       {/* Add/Edit Basket Modal */}
       <Dialog open={open} onClose={() => setOpen(false)} className="relative z-10">

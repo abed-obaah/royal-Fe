@@ -113,7 +113,7 @@ export default function ReferralDrawer({ open, onClose }) {
               />
 
               <p className="text-white text-sm">
-                Invite your friends and family to start investing now on the
+                Invite your friends and family to start investing now on
                 Royafi with your referral code and earn money.
               </p>
 

@@ -280,14 +280,14 @@ export default function WalletUI() {
       <div className="bg-[#222629] p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between mb-6">
         <div className="flex flex-col space-y-6 w-full max-w-md mx-auto px-4 sm:px-0">
           {/* Currency Selector */}
-          <div className="w-full">
-            <div className="w-full border rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div className="flex justify-start">
+            <div className=" border rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <p>{currency}</p>
             </div>
           </div>
 
           {/* Balance + toggle */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center space-x-3">
               <div className="text-3xl sm:text-4xl font-bold text-white break-words">
                 {showBalance ? `${currency} ${totalBalance.toFixed(2)}` : "••••••"}
@@ -299,7 +299,7 @@ export default function WalletUI() {
                 {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-            <div className="text-blue-400 text-sm text-left sm:text-right">Total Balance</div>
+            <div className="text-blue-400 text-sm text-left">Total Balance</div>
           </div>
 
           {/* Buttons */}
@@ -591,163 +591,203 @@ export default function WalletUI() {
       )}
 
       {/* Transaction History Table */}
-      <div className="bg-[#222629] rounded-2xl shadow-sm overflow-hidden">
-        {/* Table Header */}
-        <div className="p-6 border-b border-gray-700">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h2 className="text-xl font-bold text-white">Transaction History</h2>
-            
-            <div className="flex flex-col md:flex-row gap-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search by reference or method..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none w-full md:w-64"
-                />
-              </div>
-
-              {/* Filters */}
-              <select
-                value={filterKind}
-                onChange={(e) => setFilterKind(e.target.value)}
-                className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="all">All Types</option>
-                <option value="deposit">Deposits</option>
-                <option value="withdraw">Withdrawals</option>
-              </select>
-
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-              </select>
-            </div>
-          </div>
+     <div className="bg-[#222629] rounded-2xl shadow-sm overflow-hidden">
+  {/* Table Header */}
+  <div className="p-6 border-b border-gray-700">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <h2 className="text-xl font-bold text-white">Transaction History</h2>
+      
+      <div className="flex flex-col md:flex-row gap-3">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search by reference or method..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none w-full md:w-64"
+          />
         </div>
 
-        {/* Table Content */}
-        <div className="overflow-x-auto">
-          {transactionsLoading ? (
-            <div className="p-12 text-center text-gray-400">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              Loading transactions...
-            </div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <p className="text-lg mb-2">No transactions found</p>
-              <p className="text-sm">Try adjusting your filters or make your first transaction</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-[#2a2e32] border-b border-gray-700">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Reference
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Method/Network
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {paginatedTransactions.map((tx: Transaction) => (
-                  <tr key={tx.id} className="hover:bg-[#2a2e32] transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">{tx.reference}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {tx.kind === 'deposit' ? (
-                          <ArrowDownCircle className="mr-2 text-green-400" size={16} />
-                        ) : (
-                          <ArrowUpCircle className="mr-2 text-orange-400" size={16} />
-                        )}
-                        <span className="text-sm text-white capitalize">{tx.kind}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-300 capitalize">
-                        {tx.network ? `${tx.network}` : (tx.method || 'N/A')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-semibold ${
-                        tx.kind === 'deposit' ? 'text-green-400' : 'text-orange-400'
-                      }`}>
-                        {tx.kind === 'deposit' ? '+' : '-'}{currency} {parseFloat(tx.amount).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusBadge(tx.status)}`}>
-                        {tx.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                      {new Date(tx.created_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* Filters */}
+        <select
+          value={filterKind}
+          onChange={(e) => setFilterKind(e.target.value)}
+          className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+        >
+          <option value="all">All Types</option>
+          <option value="deposit">Deposits</option>
+          <option value="withdraw">Withdrawals</option>
+          <option value="transfer">Transfers</option>
+          <option value="royalty">Royalties</option>
+          <option value="commission">Commissions</option>
+          <option value="roi">ROI</option>
+        </select>
 
-        {/* Pagination */}
-        {filteredTransactions.length > itemsPerPage && (
-          <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
-            <div className="text-sm text-gray-400">
-              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="px-4 py-1 text-white">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-        )}
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+        >
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+        </select>
       </div>
+    </div>
+  </div>
+
+  {/* Table Content */}
+  <div className="overflow-x-auto">
+    {transactionsLoading ? (
+      <div className="p-12 text-center text-gray-400">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        Loading transactions...
+      </div>
+    ) : filteredTransactions.length === 0 ? (
+      <div className="p-12 text-center text-gray-400">
+        <p className="text-lg mb-2">No transactions found</p>
+        <p className="text-sm">Try adjusting your filters or make your first transaction</p>
+      </div>
+    ) : (
+      <table className="w-full">
+        <thead className="bg-[#2a2e32] border-b border-gray-700">
+          <tr>
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Reference
+            </th>
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Type
+            </th>
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Method/Network
+            </th>
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Amount
+            </th>
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Status
+            </th>
+            <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Date
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-700">
+          {paginatedTransactions.map((tx: Transaction) => {
+            // Determine if this is an income transaction (green with +)
+            const isIncomeTransaction = 
+              tx.kind === 'deposit' || 
+              tx.kind === 'royalty' || 
+              tx.kind === 'commission' || 
+              tx.kind === 'roi' ||
+              tx.type === 'royalty' || 
+              tx.type === 'commission' || 
+              tx.type === 'roi' ||
+              tx.kind === 'transfer' || // Incoming transfers
+              tx.type === 'transfer_in';   // Incoming transfers
+
+            // Determine if this is an outgoing transfer (orange with -)
+            const isOutgoingTransfer = 
+              tx.kind === 'transfer' || 
+              tx.kind === 'transfer_out' ||
+              tx.type === 'transfer_in' || 
+              tx.type === 'transfer_out';
+
+            // Determine icon and color
+            let amountColor = 'text-orange-400';
+            let amountSign = '-';
+            let IconComponent = ArrowUpCircle;
+            let iconColor = 'text-orange-400';
+
+            if (isIncomeTransaction) {
+              amountColor = 'text-green-400';
+              amountSign = '+';
+              IconComponent = ArrowDownCircle;
+              iconColor = 'text-green-400';
+            } else if (isOutgoingTransfer) {
+              // Outgoing transfers stay with orange and minus
+              amountColor = 'text-orange-400';
+              amountSign = '-';
+              IconComponent = ArrowUpCircle;
+              iconColor = 'text-orange-400';
+            }
+
+            return (
+              <tr key={tx.id} className="hover:bg-[#2a2e32] transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-white">{tx.reference}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <IconComponent className={`mr-2 ${iconColor}`} size={16} />
+                    <span className="text-sm text-white capitalize">
+                      {tx.kind || tx.type || 'transaction'}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-sm text-gray-300 capitalize">
+                    {tx.network ? `${tx.network}` : (tx.method || 'N/A')}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`text-sm font-semibold ${amountColor}`}>
+                    {amountSign}{currency} {parseFloat(tx.amount).toFixed(2)}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusBadge(tx.status)}`}>
+                    {tx.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                  {new Date(tx.created_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    )}
+  </div>
+
+  {/* Pagination */}
+  {filteredTransactions.length > itemsPerPage && (
+    <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
+      <div className="text-sm text-gray-400">
+        Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
+      </div>
+      <div className="flex space-x-2">
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+          disabled={currentPage === 1}
+          className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <span className="px-4 py-1 text-white">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+    </div>
+  )}
+</div>
 
       <CryptoPaymentModal
         isOpen={isModalOpen}

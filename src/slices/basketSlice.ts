@@ -8,6 +8,8 @@ export const fetchBaskets = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/baskets');
+      console.log('Baskets API Response:', response.data); // Debug log
+      console.log('First basket songs:', response.data[0]?.songs); // Debug log
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch baskets');
@@ -55,7 +57,10 @@ export const addSongsToBasket = createAsyncThunk(
   'baskets/addSongsToBasket',
   async ({ basketId, songIds }: { basketId: number; songIds: number[] }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/baskets/${basketId}/add-songs`, { song_ids: songIds });
+      // Fix: Change from songIds to song_ids to match backend expectation
+      const response = await api.post(`/baskets/${basketId}/add-songs`, { 
+        song_ids: songIds  // Changed from songIds to song_ids
+      });
       return response.data.basket;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to add songs to basket');

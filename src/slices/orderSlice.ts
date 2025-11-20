@@ -169,12 +169,25 @@ export const sellAsset = createAsyncThunk(
   }
 );
 
+// In your Redux orderSlice, ensure proper asset loading
 export const fetchSellOrders = createAsyncThunk(
   'order/fetchSellOrders',
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/portfolio/sell-orders');
-      return response.data;
+      // Process orders to ensure asset data is available
+      const orders = response.data.map(order => ({
+        ...order,
+        asset: order.asset || order.meta?.asset_data || {
+          id: order.asset_id,
+          title: `Asset ${order.asset_id}`,
+          artist: "Investment Co.",
+          type: order.asset_type,
+          price: order.price,
+          image_base64: order.image_base64
+        }
+      }));
+      return orders;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch sell orders');
     }
@@ -186,7 +199,19 @@ export const fetchPendingSellOrders = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/admin/sell/pending');
-      return response.data;
+      // Process orders to ensure asset data is available
+      const orders = response.data.map(order => ({
+        ...order,
+        asset: order.asset || order.meta?.asset_data || {
+          id: order.asset_id,
+          title: `Asset ${order.asset_id}`,
+          artist: "Unknown Artist",
+          type: order.asset_type,
+          price: order.price,
+          image_base64: order.image_base64
+        }
+      }));
+      return orders;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch pending orders');
     }

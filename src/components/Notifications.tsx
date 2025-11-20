@@ -1,117 +1,60 @@
 import React, { useState, useEffect } from "react";
 import { X, ArrowLeft, Bell, Check, CheckCheck } from "lucide-react";
-import { notificationsApi, Notification } from "../api/notifications";
+import { useNotifications } from "../context/NotificationsContext";
 
-interface NotificationsDrawerProps {
-  open: boolean;
-  onClose: () => void;
-}
-
-export default function NotificationsDrawer({ open, onClose }: NotificationsDrawerProps) {
-  const [view, setView] = useState<"list" | "details">("list");
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function NotificationsDrawer({ open, onClose }) {
+  const [view, setView] = useState("list");
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [internalLoading, setInternalLoading] = useState(false);
+  
+  const {
+    notifications,
+    loading: contextLoading,
+    error,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead
+  } = useNotifications();
 
   // Fetch notifications when drawer opens
   useEffect(() => {
     if (open) {
-      fetchNotifications();
+      setInternalLoading(true);
+      fetchNotifications().finally(() => {
+        setInternalLoading(false);
+      });
     }
-  }, [open]);
+  }, [open]); // Remove fetchNotifications from dependencies
 
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await notificationsApi.getNotifications();
-      // Ensure notifications is always an array
-      setNotifications(response.notifications || []);
-    } catch (err: any) {
-      setError("Failed to load notifications");
-      console.error("Error fetching notifications:", err);
-      // Set empty array on error to prevent undefined issues
-      setNotifications([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMarkAsRead = async (notificationId: number) => {
-    try {
-      await notificationsApi.markAsRead(notificationId);
-      // Update local state - safely handle notifications array
-      setNotifications(prev =>
-        (prev || []).map(notif =>
-          notif.id === notificationId
-            ? { ...notif, read_at: new Date().toISOString() }
-            : notif
-        )
-      );
-      
-      // If viewing details, update the selected notification
-      if (selectedNotification?.id === notificationId) {
-        setSelectedNotification(prev => 
-          prev ? { ...prev, read_at: new Date().toISOString() } : null
-        );
-      }
-    } catch (err: any) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    try {
-      await notificationsApi.markAllAsRead();
-      // Update local state - safely handle notifications array
-      const now = new Date().toISOString();
-      setNotifications(prev =>
-        (prev || []).map(notif => ({ ...notif, read_at: notif.read_at || now }))
-      );
-      
-      // Update selected notification if it exists
-      if (selectedNotification && !selectedNotification.read_at) {
-        setSelectedNotification(prev => 
-          prev ? { ...prev, read_at: now } : null
-        );
-      }
-    } catch (err: any) {
-      console.error("Error marking all notifications as read:", err);
-    }
-  };
-
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = (notification) => {
     setSelectedNotification(notification);
     setView("details");
     
     // Mark as read if unread
     if (!notification.read_at) {
-      handleMarkAsRead(notification.id);
+      markAsRead(notification.id);
     }
   };
 
   const resetAndClose = () => {
     setView("list");
     setSelectedNotification(null);
-    setError(null);
     onClose();
   };
 
-  // Group notifications by date - safely handle notifications array
+  // Group notifications by date
   const groupNotificationsByDate = () => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
     const groups = {
-      today: [] as Notification[],
-      yesterday: [] as Notification[],
-      older: [] as Notification[],
+      today: [],
+      yesterday: [],
+      older: [],
     };
 
-    // Safely iterate over notifications
-    (notifications || []).forEach(notification => {
+    notifications.forEach(notification => {
       if (!notification || !notification.created_at) return;
       
       const notificationDate = new Date(notification.created_at);
@@ -128,7 +71,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
     return groups;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString) => {
     if (!dateString) return "Unknown date";
     
     try {
@@ -151,8 +94,8 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
     }
   };
 
-  // Safely check for unread notifications
-  const hasUnreadNotifications = (notifications || []).some(notif => !notif.read_at);
+  const hasUnreadNotifications = notifications.some(notif => !notif.read_at);
+  const isLoading = internalLoading || contextLoading;
 
   return (
     <>
@@ -205,14 +148,14 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                   <Bell className="w-5 h-5" />
                   <span>
                     {hasUnreadNotifications 
-                      ? `${(notifications || []).filter(n => !n.read_at).length} unread notification${(notifications || []).filter(n => !n.read_at).length !== 1 ? 's' : ''}`
+                      ? `${notifications.filter(n => !n.read_at).length} unread notification${notifications.filter(n => !n.read_at).length !== 1 ? 's' : ''}`
                       : "No unread notifications"
                     }
                   </span>
                 </div>
-                {hasUnreadNotifications && (
+                {hasUnreadNotifications && !isLoading && (
                   <button 
-                    onClick={handleMarkAllAsRead}
+                    onClick={markAllAsRead}
                     className="text-blue-400 text-sm font-medium px-3 py-1 rounded-md hover:bg-blue-400 hover:text-white transition-colors"
                   >
                     MARK ALL AS READ
@@ -220,7 +163,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                 )}
               </div>
 
-              {loading ? (
+              {isLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="text-gray-400">Loading notifications...</div>
                 </div>
@@ -236,7 +179,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                     </button>
                   </div>
                 </div>
-              ) : !notifications || notifications.length === 0 ? (
+              ) : notifications.length === 0 ? (
                 <div className="text-center py-8">
                   <Bell className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-400">No notifications yet</p>
@@ -262,7 +205,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                                   key={notification.id}
                                   notification={notification}
                                   onClick={handleNotificationClick}
-                                  onMarkAsRead={handleMarkAsRead}
+                                  onMarkAsRead={markAsRead}
                                 />
                               ))}
                             </div>
@@ -280,7 +223,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                                   key={notification.id}
                                   notification={notification}
                                   onClick={handleNotificationClick}
-                                  onMarkAsRead={handleMarkAsRead}
+                                  onMarkAsRead={markAsRead}
                                 />
                               ))}
                             </div>
@@ -298,7 +241,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                                   key={notification.id}
                                   notification={notification}
                                   onClick={handleNotificationClick}
-                                  onMarkAsRead={handleMarkAsRead}
+                                  onMarkAsRead={markAsRead}
                                 />
                               ))}
                             </div>
@@ -320,7 +263,7 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
                   </h3>
                   {!selectedNotification.read_at && (
                     <button
-                      onClick={() => handleMarkAsRead(selectedNotification.id)}
+                      onClick={() => markAsRead(selectedNotification.id)}
                       className="flex items-center gap-1 text-blue-400 text-sm hover:underline"
                     >
                       <Check className="w-4 h-4" />
@@ -358,20 +301,11 @@ export default function NotificationsDrawer({ open, onClose }: NotificationsDraw
 }
 
 // Notification Item Component
-interface NotificationItemProps {
-  notification: Notification;
-  onClick: (notification: Notification) => void;
-  onMarkAsRead: (id: number) => void;
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = ({ 
+const NotificationItem = React.memo(({ 
   notification, 
   onClick, 
   onMarkAsRead 
 }) => {
-  // Safely handle notification data
-  if (!notification) return null;
-  
   const isUnread = !notification.read_at;
 
   return (
@@ -420,4 +354,4 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       </div>
     </div>
   );
-};
+});

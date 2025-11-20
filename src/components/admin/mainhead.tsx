@@ -14,6 +14,8 @@ import {
   MagnifyingGlassIcon,
   PencilIcon,
   TrashIcon,
+  CheckIcon,
+  XMarkIcon,
 } from "@heroicons/react/20/solid";
 import WalletUi from "./wallet";
 
@@ -29,7 +31,10 @@ import {
   Download,
   Search,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Crown,
+  Gift,
+  Users
 } from "lucide-react";
 import CryptoPaymentModal from "@/components/CryptoPaymentModal";
 import WithdrawModal from "@/components/WithdrawModal";
@@ -37,11 +42,10 @@ import { getWallet } from "@/api/wallet";
 import { 
   createTransaction, 
   fetchUserTransactions,
-  getWalletAddress 
+  getWalletAddress,
+  updateTransactionAdmin 
 } from "../../slices/transactionSlice";
 import { RootState, AppDispatch } from "../../store";
-
-
 
 const albums = [
   {
@@ -193,43 +197,33 @@ export default function AlbumGrid({ onAlbumClick }) {
 
   const filteredAlbums = getFilteredAlbums();
 
-    const dispatch = useDispatch<AppDispatch>();
-    const { userTransactions, loading: transactionsLoading, walletAddress } = useSelector(
-      (state: RootState) => state.transactions
-    );
-    
-    const [showBalance, setShowBalance] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isWithdrawOpen, setWithdrawOpen] = useState(false);
-    const [wallet, setWallet] = useState<WalletData | null>(null);
-    const [loading, setLoading] = useState(true);
-    
-    // Table filters
-    const [filterStatus, setFilterStatus] = useState<string>("all");
-    const [filterKind, setFilterKind] = useState<string>("all");
-  // const dispatch = useDispatch<AppDispatch>();
-  // const { userTransactions, loading: transactionsLoading, walletAddress } = useSelector(
-  //   (state: RootState) => state.transactions
-  // );
+  const dispatch = useDispatch();
+  const { userTransactions, loading: transactionsLoading, walletAddress } = useSelector(
+    (state) => state.transactions
+  );
   
-  // const [showBalance, setShowBalance] = useState(true);
-  // const [isModalOpen, setIsModalOpen] = useState(false);
-  // const [isWithdrawOpen, setWithdrawOpen] = useState(false);
-  // const [wallet, setWallet] = useState<WalletData | null>(null);
-  // const [loading, setLoading] = useState(true);
+  const [showBalance, setShowBalance] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWithdrawOpen, setWithdrawOpen] = useState(false);
+  const [wallet, setWallet] = useState(null);
+  const [loading, setLoading] = useState(true);
   
   // Table filters
-  // const [filterStatus, setFilterStatus] = useState<string>("all");
-  // const [filterKind, setFilterKind] = useState<string>("all");
-  // const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterKind, setFilterKind] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Transaction editing states
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [editTransactionForm, setEditTransactionForm] = useState({});
+  const [isAdmin, setIsAdmin] = useState(true); // Replace with actual admin check from your auth system
 
   useEffect(() => {
     const fetchWalletData = async () => {
       try {
         setLoading(true);
-        const data: WalletApiResponse = await getWallet();
+        const data = await getWallet();
         setWallet(data.wallet);
         
         // Fetch transaction history
@@ -244,7 +238,7 @@ export default function AlbumGrid({ onAlbumClick }) {
     fetchWalletData();
   }, [dispatch]);
 
-  const handleDeposit = async (amount: number, network: string, proof: string) => {
+  const handleDeposit = async (amount, network, proof) => {
     try {
       await dispatch(createTransaction({
         kind: 'deposit',
@@ -254,20 +248,20 @@ export default function AlbumGrid({ onAlbumClick }) {
       })).unwrap();
       
       // Refresh wallet data and transactions
-      const data: WalletApiResponse = await getWallet();
+      const data = await getWallet();
       setWallet(data.wallet);
       await dispatch(fetchUserTransactions());
       
       setIsModalOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Deposit failed:', error);
       alert(error || 'Deposit failed. Please try again.');
     }
   };
 
-  const handleWithdraw = async (amount: number, method: 'crypto' | 'bank', details: any) => {
+  const handleWithdraw = async (amount, method, details) => {
     try {
-      const transactionData: any = {
+      const transactionData = {
         kind: 'withdraw',
         amount,
         method,
@@ -281,21 +275,21 @@ export default function AlbumGrid({ onAlbumClick }) {
       await dispatch(createTransaction(transactionData)).unwrap();
       
       // Refresh wallet data and transactions
-      const data: WalletApiResponse = await getWallet();
+      const data = await getWallet();
       setWallet(data.wallet);
       await dispatch(fetchUserTransactions());
       
       setWithdrawOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Withdrawal failed:', error);
       alert(error || 'Withdrawal failed. Please try again.');
     }
   };
 
-  const handleGetWalletAddress = async (network: string) => {
+  const handleGetWalletAddress = async (network) => {
     try {
       await dispatch(getWalletAddress(network)).unwrap();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to get wallet address:', error);
       alert(error || 'Failed to get wallet address. Please try again.');
     }
@@ -304,7 +298,7 @@ export default function AlbumGrid({ onAlbumClick }) {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      const data: WalletApiResponse = await getWallet();
+      const data = await getWallet();
       setWallet(data.wallet);
       await dispatch(fetchUserTransactions());
     } catch (error) {
@@ -314,11 +308,111 @@ export default function AlbumGrid({ onAlbumClick }) {
     }
   };
 
+  // Transaction editing handlers
+  const handleEditTransactionClick = (transaction) => {
+    setEditingTransaction(transaction.id);
+    setEditTransactionForm({ 
+      ...transaction,
+      amount: parseFloat(transaction.amount).toFixed(2),
+      // Ensure kind is properly set
+      kind: transaction.kind || 'deposit',
+      // Convert date to local datetime string for input
+      created_at: new Date(transaction.created_at).toISOString().slice(0, 16)
+    });
+  };
+
+  const handleSaveTransactionEdit = async () => {
+    try {
+      // Prepare the data for API - ensure proper formatting
+      const submissionData = {
+        ...editTransactionForm,
+        amount: parseFloat(editTransactionForm.amount),
+        // Ensure we're not sending undefined values
+        network: editTransactionForm.network || null,
+        method: editTransactionForm.method || null,
+        proof_url: editTransactionForm.proof_url || null,
+        withdrawal_details: editTransactionForm.withdrawal_details || null,
+        admin_notes: editTransactionForm.admin_notes || null,
+      };
+
+      console.log('Sending transaction update:', submissionData);
+
+      await dispatch(updateTransactionAdmin({
+        id: editingTransaction,
+        transactionData: submissionData
+      })).unwrap();
+      
+      setEditingTransaction(null);
+      setEditTransactionForm({});
+      // Refresh transactions
+      await dispatch(fetchUserTransactions());
+      
+      // Refresh wallet data to reflect balance changes
+      const data = await getWallet();
+      setWallet(data.wallet);
+      
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      alert(error || 'Failed to update transaction');
+    }
+  };
+
+  const handleCancelTransactionEdit = () => {
+    setEditingTransaction(null);
+    setEditTransactionForm({});
+  };
+
+  const handleTransactionInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditTransactionForm((prev) => ({ 
+      ...prev, 
+      [name]: value 
+    }));
+  };
+
+  const handleTransactionSelectChange = (e) => {
+    const { name, value } = e.target;
+    setEditTransactionForm((prev) => ({ 
+      ...prev, 
+      [name]: value 
+    }));
+  };
+
+  // Get transaction type icon
+  const getTransactionIcon = (kind) => {
+    switch (kind) {
+      case 'deposit':
+        return <ArrowDownCircle className="mr-2 text-green-400" size={16} />;
+      case 'withdraw':
+        return <ArrowUpCircle className="mr-2 text-orange-400" size={16} />;
+      case 'royalty':
+        return <Crown className="mr-2 text-purple-400" size={16} />;
+      case 'referral':
+        return <Users className="mr-2 text-blue-400" size={16} />;
+      case 'bonus':
+        return <Gift className="mr-2 text-yellow-400" size={16} />;
+      default:
+        return <ArrowDownCircle className="mr-2 text-gray-400" size={16} />;
+    }
+  };
+
+  // Get amount color based on transaction type
+  const getAmountColor = (kind) => {
+    return kind === 'deposit' || kind === 'royalty' || kind === 'referral' || kind === 'bonus' 
+      ? 'text-green-400' 
+      : 'text-orange-400';
+  };
+
+  // Get amount sign based on transaction type
+  const getAmountSign = (kind) => {
+    return kind === 'deposit' || kind === 'royalty' || kind === 'referral' || kind === 'bonus' ? '+' : '-';
+  };
+
   // Filter and search transactions - use userTransactions from Redux
   const filteredTransactions = React.useMemo(() => {
     if (!userTransactions) return [];
     
-    return userTransactions.filter((tx: Transaction) => {
+    return userTransactions.filter((tx) => {
       const matchesStatus = filterStatus === "all" || tx.status === filterStatus;
       const matchesKind = filterKind === "all" || tx.kind === filterKind;
       const matchesSearch = 
@@ -337,13 +431,13 @@ export default function AlbumGrid({ onAlbumClick }) {
     startIndex + itemsPerPage
   );
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status) => {
     const styles = {
       pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
       completed: "bg-green-500/20 text-green-400 border-green-500/30",
       failed: "bg-red-500/20 text-red-400 border-red-500/30",
     };
-    return styles[status as keyof typeof styles] || styles.pending;
+    return styles[status] || styles.pending;
   };
 
   if (loading && !wallet) {
@@ -380,365 +474,277 @@ export default function AlbumGrid({ onAlbumClick }) {
       <div className="flex justify-between items-center mb-4 px-4">
         <input
           type="text"
-          placeholder="Search albums..."
+          placeholder="Search..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
         />
-
-        {/* <Menu as="div" className="relative inline-block">
-          <MenuButton className="inline-flex items-center text-sm text-gray-300">
-            Sort by
-            <ChevronDownIcon className="ml-1 h-5 w-5 text-gray-400" />
-          </MenuButton>
-          <MenuItems className="absolute right-0 mt-2 w-48 rounded-md bg-gray-800 shadow-lg">
-            <div className="py-1">
-              {sortOptions.map((option) => (
-                <MenuItem key={option.value}>
-                  {({ active }) => (
-                    <button
-                      onClick={() => setSortBy(option.value)}
-                      className={classNames(
-                        option.value === sortBy
-                          ? "font-medium text-white"
-                          : "text-gray-400",
-                        active ? "bg-gray-700" : "",
-                        "block w-full px-4 py-2 text-left text-sm"
-                      )}
-                    >
-                      {option.name}
-                    </button>
-                  )}
-                </MenuItem>
-              ))}
-            </div>
-          </MenuItems>
-        </Menu> */}
       </div>
 
-      {/* Album Table */}
       <div className="px-4 md:p-6">
-        {/* <div className="overflow-x-auto">
-          <table className="min-w-full bg-[#222629] rounded-lg">
-            <thead className="bg-gray-800">
-              <tr>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  Album
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  Risk Rating
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  ROI Range
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  Entry Point
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  ROI to Date
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  Asset Type
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  Price
-                </th>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-400 uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {filteredAlbums.map((album) => (
-                <tr
-                  key={album.id}
-                  className="hover:bg-gray-700 cursor-pointer"
-                  onClick={() => onAlbumClick(album)}
-                >
-                  <td className="py-3 px-4">
-                    {editingAlbum === album.id ? (
-                      <input
-                        type="text"
-                        name="title"
-                        value={editForm.title}
-                        onChange={handleInputChange}
-                        className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-                      />
-                    ) : (
-                      <div className="flex items-center">
-                        <img
-                          src={album.cover}
-                          alt={album.title}
-                          className="w-12 h-12 rounded-md object-cover mr-3"
-                        />
-                        <div>
-                          <div className="text-sm font-medium text-white">
-                            {album.title}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {album.artist}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4">
-                    {editingAlbum === album.id ? (
-                      <select
-                        name="riskRating"
-                        value={editForm.riskRating}
-                        onChange={handleInputChange}
-                        className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600"
-                      >
-                        <option>Very Highs</option>
-                        <option>High</option>
-                        <option>Medium</option>
-                        <option>Low</option>
-                      </select>
-                    ) : (
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${getRiskColor(
-                          album.riskRating
-                        )} bg-gray-700/50`}
-                      >
-                        {album.riskRating}
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="py-3 px-4 text-gray-300">{album.roiRange}</td>
-                  <td className="py-3 px-4 text-gray-300">
-                    {album.entryPoint}
-                  </td>
-                  <td
-                    className={`py-3 px-4 font-medium ${getROIColor(
-                      album.roiToDate
-                    )}`}
-                  >
-                    {album.roiToDate}
-                  </td>
-                  <td className="py-3 px-4 text-gray-300">{album.assetType}</td>
-                  <td className="py-3 px-4 text-gray-300">${album.price}</td>
-
-                  <td className="py-3 px-4 space-x-2">
-                    {editingAlbum === album.id ? (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSaveEdit();
-                          }}
-                          className="text-green-400 hover:underline text-sm"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancelEdit();
-                          }}
-                          className="text-gray-400 hover:underline text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditClick(album);
-                          }}
-                          className="text-blue-400 hover:text-blue-300"
-                        >
-                          <PencilIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(album.id);
-                          }}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <TrashIcon className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredAlbums.length === 0 && (
-                <tr>
-                  <td
-                    colSpan="8"
-                    className="text-center py-6 text-gray-400 text-sm"
-                  >
-                    No albums found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div> */}
-
         <div className="bg-[#222629] rounded-2xl shadow-sm overflow-hidden">
-                {/* Table Header */}
-                <div className="p-6 border-b border-gray-700">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <h2 className="text-xl font-bold text-white">Transaction History</h2>
-                    
-                    {/* <div className="flex flex-col md:flex-row gap-3">
-                      
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                          type="text"
-                          placeholder="Search by reference or method..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 pr-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none w-full md:w-64"
-                        />
-                      </div>
-        
-                     
-                      <select
-                        value={filterKind}
-                        onChange={(e) => setFilterKind(e.target.value)}
-                        className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                      >
-                        <option value="all">All Types</option>
-                        <option value="deposit">Deposits</option>
-                        <option value="withdraw">Withdrawals</option>
-                      </select>
-        
-                      <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="completed">Completed</option>
-                        <option value="failed">Failed</option>
-                      </select>
-                    </div> */}
-                  </div>
+          {/* Table Header */}
+          <div className="p-6 border-b border-gray-700">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <h2 className="text-xl font-bold text-white">Transaction History</h2>
+              
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search by reference or method..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none w-full md:w-64"
+                  />
                 </div>
-        
-                {/* Table Content */}
-                <div className="overflow-x-auto">
-                  {transactionsLoading ? (
-                    <div className="p-12 text-center text-gray-400">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                      Loading transactions...
-                    </div>
-                  ) : filteredTransactions.length === 0 ? (
-                    <div className="p-12 text-center text-gray-400">
-                      <p className="text-lg mb-2">No transactions found</p>
-                      <p className="text-sm">Try adjusting your filters or make your first transaction</p>
-                    </div>
-                  ) : (
-                    <table className="w-full">
-                      <thead className="bg-[#2a2e32] border-b border-gray-700">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                            Reference
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                            Method/Network
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                            Amount
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                            Date
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-700">
-                        {paginatedTransactions.map((tx: Transaction) => (
-                          <tr key={tx.id} className="hover:bg-[#2a2e32] transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-white">{tx.reference}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                {tx.kind === 'deposit' ? (
-                                  <ArrowDownCircle className="mr-2 text-green-400" size={16} />
-                                ) : (
-                                  <ArrowUpCircle className="mr-2 text-orange-400" size={16} />
-                                )}
-                                <span className="text-sm text-white capitalize">{tx.kind}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-300 capitalize">
-                                {tx.network ? `${tx.network}` : (tx.method || 'N/A')}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`text-sm font-semibold ${
-                                tx.kind === 'deposit' ? 'text-green-400' : 'text-orange-400'
-                              }`}>
-                                {tx.kind === 'deposit' ? '+' : '-'}{currency} {parseFloat(tx.amount).toFixed(2)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusBadge(tx.status)}`}>
-                                {tx.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                              {new Date(tx.created_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-        
-                {/* Pagination */}
-                {filteredTransactions.length > itemsPerPage && (
-                  <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
-                    <div className="text-sm text-gray-400">
-                      Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronLeft size={18} />
-                      </button>
-                      <span className="px-4 py-1 text-white">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <ChevronRight size={18} />
-                      </button>
-                    </div>
-                  </div>
-                )}
+  
+                <select
+                  value={filterKind}
+                  onChange={(e) => setFilterKind(e.target.value)}
+                  className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="all">All Types</option>
+                  <option value="deposit">Deposits</option>
+                  <option value="withdraw">Withdrawals</option>
+                  <option value="royalty">Royalties</option>
+                  <option value="referral">Referrals</option>
+                  <option value="bonus">Bonuses</option>
+                </select>
+  
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-4 py-2 bg-[#2a2e32] text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
               </div>
+            </div>
+          </div>
+  
+          {/* Table Content */}
+          <div className="overflow-x-auto">
+            {transactionsLoading ? (
+              <div className="p-12 text-center text-gray-400">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                Loading transactions...
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <div className="p-12 text-center text-gray-400">
+                <p className="text-lg mb-2">No transactions found</p>
+                <p className="text-sm">Try adjusting your filters or make your first transaction</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-[#2a2e32] border-b border-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Reference
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Method/Network
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Date
+                    </th>
+                    {isAdmin && (
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {paginatedTransactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-[#2a2e32] transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingTransaction === tx.id ? (
+                          <input
+                            type="text"
+                            name="reference"
+                            value={editTransactionForm.reference || ''}
+                            onChange={handleTransactionInputChange}
+                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+                          />
+                        ) : (
+                          <div className="text-sm font-medium text-white">{tx.reference}</div>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingTransaction === tx.id ? (
+                          <select
+                            name="kind"
+                            value={editTransactionForm.kind || 'deposit'}
+                            onChange={handleTransactionSelectChange}
+                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+                          >
+                            <option value="deposit">Deposit</option>
+                            <option value="withdraw">Withdraw</option>
+                            <option value="royalty">Royalty</option>
+                            <option value="referral">Referral</option>
+                            <option value="bonus">Bonus</option>
+                          </select>
+                        ) : (
+                          <div className="flex items-center">
+                            {getTransactionIcon(tx.kind)}
+                            <span className="text-sm text-white capitalize">{tx.kind}</span>
+                          </div>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingTransaction === tx.id ? (
+                          <input
+                            type="text"
+                            name="network"
+                            value={editTransactionForm.network || editTransactionForm.method || ''}
+                            onChange={handleTransactionInputChange}
+                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+                            placeholder="Network/Method"
+                          />
+                        ) : (
+                          <span className="text-sm text-gray-300 capitalize">
+                            {tx.network ? `${tx.network}` : (tx.method || 'N/A')}
+                          </span>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingTransaction === tx.id ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            name="amount"
+                            value={editTransactionForm.amount || ''}
+                            onChange={handleTransactionInputChange}
+                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+                          />
+                        ) : (
+                          <span className={`text-sm font-semibold ${getAmountColor(tx.kind)}`}>
+                            {getAmountSign(tx.kind)}{currency} {parseFloat(tx.amount).toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingTransaction === tx.id ? (
+                          <select
+                            name="status"
+                            value={editTransactionForm.status || 'pending'}
+                            onChange={handleTransactionSelectChange}
+                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                          </select>
+                        ) : (
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusBadge(tx.status)}`}>
+                            {tx.status}
+                          </span>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                        {editingTransaction === tx.id ? (
+                          <input
+                            type="datetime-local"
+                            name="created_at"
+                            value={editTransactionForm.created_at || ''}
+                            onChange={handleTransactionInputChange}
+                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 text-sm"
+                          />
+                        ) : (
+                          new Date(tx.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        )}
+                      </td>
+                      
+                      {isAdmin && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {editingTransaction === tx.id ? (
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={handleSaveTransactionEdit}
+                                className="text-green-400 hover:text-green-300"
+                                title="Save changes"
+                              >
+                                <CheckIcon className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={handleCancelTransactionEdit}
+                                className="text-red-400 hover:text-red-300"
+                                title="Cancel editing"
+                              >
+                                <XMarkIcon className="w-5 h-5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleEditTransactionClick(tx)}
+                              className="text-blue-400 hover:text-blue-300"
+                              title="Edit transaction"
+                            >
+                              <PencilIcon className="w-5 h-5" />
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+  
+          {/* Pagination */}
+          {filteredTransactions.length > itemsPerPage && (
+            <div className="px-6 py-4 border-t border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="px-4 py-1 text-white">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 bg-[#2a2e32] text-white rounded-lg border border-gray-600 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

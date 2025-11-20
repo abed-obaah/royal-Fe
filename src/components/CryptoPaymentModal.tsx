@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
-import { X, Copy, CheckCircle2 } from "lucide-react";
+import { X, Copy, CheckCircle2, Loader2 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { RootState } from "../store";
 
@@ -23,6 +23,7 @@ export default function CryptoPaymentModal({
   const [file, setFile] = useState<File | null>(null);
   const [proofBase64, setProofBase64] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get network wallets from Redux store
   const { wallets } = useSelector((state: RootState) => state.networkWallets);
@@ -48,6 +49,7 @@ export default function CryptoPaymentModal({
       setFile(null);
       setProofBase64("");
       setCopied(false);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 
@@ -82,17 +84,30 @@ export default function CryptoPaymentModal({
     }
   };
 
-  const handleSubmitPayment = () => {
+  const handleSubmitPayment = async () => {
     if (!amount || !network || !proofBase64) {
       alert("Please fill all required fields and upload payment proof.");
       return;
     }
     
-    onDeposit(
-      parseFloat(amount),
-      network,
-      proofBase64
-    );
+    setIsSubmitting(true);
+    
+    try {
+      await onDeposit(
+        parseFloat(amount),
+        network,
+        proofBase64
+      );
+      // Note: The parent component should handle closing the modal or showing success
+      // If you need to reset the loading state on success, you might want to add a callback
+    } catch (error) {
+      console.error('Deposit failed:', error);
+      // Reset loading state if there's an error
+      setIsSubmitting(false);
+    }
+    
+    // Note: If onDeposit is async and you want to keep the loading state until it completes,
+    // make sure onDeposit returns a Promise and handle it properly in the parent component
   };
 
   if (!isOpen) return null;
@@ -102,7 +117,11 @@ export default function CryptoPaymentModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
 
       <div className="relative bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+        <button 
+          onClick={onClose} 
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+          disabled={isSubmitting}
+        >
           <X size={24} />
         </button>
 
@@ -120,6 +139,7 @@ export default function CryptoPaymentModal({
                 min="0.01"
                 step="0.01"
                 className="mt-2 w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500"
+                disabled={isSubmitting}
               />
             </label>
 
@@ -129,6 +149,7 @@ export default function CryptoPaymentModal({
                 value={network}
                 onChange={(e) => setNetwork(e.target.value)}
                 className="mt-2 w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500"
+                disabled={isSubmitting}
               >
                 <option value="">-- Choose Network --</option>
                 {activeNetworks.map(net => (
@@ -163,10 +184,17 @@ export default function CryptoPaymentModal({
                 }
                 setStep(2);
               }}
-              disabled={activeNetworks.length === 0}
+              disabled={activeNetworks.length === 0 || isSubmitting}
               className="mt-6 w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Continue to Payment
+              {isSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                  Processing...
+                </div>
+              ) : (
+                "Continue to Payment"
+              )}
             </button>
           </div>
         )}
@@ -211,6 +239,7 @@ export default function CryptoPaymentModal({
                     <button
                       onClick={handleCopyAddress}
                       className="flex-shrink-0 text-gray-500 hover:text-gray-700"
+                      disabled={isSubmitting}
                     >
                       {copied ? <CheckCircle2 size={20} className="text-green-500" /> : <Copy size={20} />}
                     </button>
@@ -246,6 +275,7 @@ export default function CryptoPaymentModal({
                     className="w-full border rounded-xl p-3"
                     accept="image/*,.pdf"
                     required
+                    disabled={isSubmitting}
                   />
                   {file && (
                     <p className="text-green-500 text-sm mt-2 text-left">
@@ -257,17 +287,25 @@ export default function CryptoPaymentModal({
                 <div className="mt-6 flex gap-3">
                   <button
                     onClick={() => setStep(1)}
-                    className="flex-1 py-3 bg-gray-300 text-gray-800 font-semibold rounded-xl hover:bg-gray-400 transition"
+                    disabled={isSubmitting}
+                    className="flex-1 py-3 bg-gray-300 text-gray-800 font-semibold rounded-xl hover:bg-gray-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Back
                   </button>
 
                   <button
                     onClick={handleSubmitPayment}
-                    disabled={!proofBase64}
-                    className="flex-1 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!proofBase64 || isSubmitting}
+                    className="flex-1 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
-                    Submit Deposit
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Submit Deposit"
+                    )}
                   </button>
                 </div>
               </div>

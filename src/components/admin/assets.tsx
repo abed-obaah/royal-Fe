@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { Trash2, Pencil, X, Plus, Search, Download } from "lucide-react";
+import { Trash2, Pencil, X, Plus, Search, Download, Filter } from "lucide-react";
 import { 
   fetchAssets, 
   createAsset, 
@@ -28,9 +28,32 @@ export default function AssetsDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [songSearchQuery, setSongSearchQuery] = useState("");
   
+  // Loading states
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState<string | null>(null);
+  const [songImportLoading, setSongImportLoading] = useState<number | null>(null);
+  const [editLoading, setEditLoading] = useState<number | null>(null);
+  const [deleteButtonLoading, setDeleteButtonLoading] = useState<number | null>(null);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    title: "",
+    artist: "",
+    genre: "",
+    type: "",
+    status: "",
+    risk_rating: "",
+    minPrice: "",
+    maxPrice: "",
+  });
+
   const [formData, setFormData] = useState({
     title: "",
     slug: "",
@@ -47,6 +70,7 @@ export default function AssetsDashboard() {
     status: "active" as "active" | "inactive",
     song_id: "",
     basket_id: "",
+    risk_rating: "medium" as "low" | "medium" | "high",
   });
 
   useEffect(() => {
@@ -63,6 +87,65 @@ export default function AssetsDashboard() {
       return () => clearTimeout(timer);
     }
   }, [error, dispatch]);
+
+  // Filter assets based on filter criteria
+  const filteredAssets = assets.filter(asset => {
+    if (filters.title && !asset.title.toLowerCase().includes(filters.title.toLowerCase())) {
+      return false;
+    }
+    if (filters.artist && !asset.artist?.toLowerCase().includes(filters.artist.toLowerCase())) {
+      return false;
+    }
+    if (filters.genre && !asset.genre?.toLowerCase().includes(filters.genre.toLowerCase())) {
+      return false;
+    }
+    if (filters.type && asset.type !== filters.type) {
+      return false;
+    }
+    if (filters.status && asset.status !== filters.status) {
+      return false;
+    }
+    if (filters.risk_rating && asset.risk_rating !== filters.risk_rating) {
+      return false;
+    }
+    if (filters.minPrice && asset.price < parseFloat(filters.minPrice)) {
+      return false;
+    }
+    if (filters.maxPrice && asset.price > parseFloat(filters.maxPrice)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Filter songs based on search query
+  const filteredSongs = songs.filter(song => {
+    if (!songSearchQuery.trim()) return true;
+    
+    const query = songSearchQuery.toLowerCase();
+    return (
+      song.title?.toLowerCase().includes(query) ||
+      song.artist?.toLowerCase().includes(query) ||
+      song.album?.toLowerCase().includes(query) ||
+      song.genre?.toLowerCase().includes(query)
+    );
+  });
+
+  // Check if any filters are active
+  const hasActiveFilters = Object.values(filters).some(value => value !== "");
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      title: "",
+      artist: "",
+      genre: "",
+      type: "",
+      status: "",
+      risk_rating: "",
+      minPrice: "",
+      maxPrice: "",
+    });
+  };
 
   // Convert image to base64 with MIME type
   const convertImageToBase64 = (file: File): Promise<string> => {
@@ -122,6 +205,7 @@ export default function AssetsDashboard() {
         status: asset.status || "active",
         song_id: asset.song_id?.toString() || "",
         basket_id: asset.basket_id?.toString() || "",
+        risk_rating: asset.risk_rating || "medium",
       });
     } else {
       setSelectedAsset(null);
@@ -141,6 +225,7 @@ export default function AssetsDashboard() {
         status: "active",
         song_id: "",
         basket_id: "",
+        risk_rating: "medium",
       });
     }
     setImageFile(null);
@@ -150,12 +235,14 @@ export default function AssetsDashboard() {
   // Save asset (add or edit)
   const handleSave = async () => {
     try {
+      setSaveLoading(true);
       let payload: CreateAssetData | UpdateAssetData = {
         title: formData.title,
         type: formData.type,
         price: parseFloat(formData.price),
         total_shares: parseInt(formData.total_shares),
         status: formData.status,
+        risk_rating: formData.risk_rating,
       };
 
       // Add optional fields if they have values
@@ -217,12 +304,15 @@ export default function AssetsDashboard() {
       dispatch(fetchAssets({ per_page: 100 }));
     } catch (error) {
       console.error('Error saving asset:', error);
+    } finally {
+      setSaveLoading(false);
     }
   };
 
   // Import song as asset
   const importSongAsAsset = async (song: any) => {
     try {
+      setSongImportLoading(song.id);
       const payload: CreateAssetData = {
         title: song.title,
         type: "single",
@@ -236,6 +326,7 @@ export default function AssetsDashboard() {
         expected_roi_max: 20.0,
         current_roi_percent: 0.0,
         available_shares: 1000,
+        risk_rating: "medium", // Default risk rating
       };
 
       await dispatch(createAsset(payload)).unwrap();
@@ -247,12 +338,15 @@ export default function AssetsDashboard() {
       console.log('✅ Song imported as asset successfully');
     } catch (error) {
       console.error('❌ Error importing song as asset:', error);
+    } finally {
+      setSongImportLoading(null);
     }
   };
 
   // Import from Spotify as asset
   const importSpotifyAsAsset = async (track: SpotifyTrack) => {
     try {
+      setImportLoading(track.spotify_id);
       // First import the song to get a song_id
       const result = await dispatch(importSpotify(track.spotify_id)).unwrap();
       const importedSong = result.song;
@@ -271,6 +365,7 @@ export default function AssetsDashboard() {
         expected_roi_max: 20.0,
         current_roi_percent: 0.0,
         available_shares: 1000,
+        risk_rating: "medium", // Default risk rating
       };
 
       await dispatch(createAsset(payload)).unwrap();
@@ -282,13 +377,22 @@ export default function AssetsDashboard() {
       console.log('✅ Spotify track imported as asset successfully');
     } catch (error) {
       console.error('❌ Error importing Spotify track as asset:', error);
+    } finally {
+      setImportLoading(null);
     }
   };
 
   // Search Spotify
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (searchQuery.trim()) {
-      dispatch(searchSpotify(searchQuery));
+      setSearchLoading(true);
+      try {
+        await dispatch(searchSpotify(searchQuery)).unwrap();
+      } catch (error) {
+        // Error is handled by the slice
+      } finally {
+        setSearchLoading(false);
+      }
     }
   };
 
@@ -298,13 +402,41 @@ export default function AssetsDashboard() {
     setDeleteModalOpen(true);
   };
 
+  // Handle individual edit button click
+  const handleEditClick = async (asset: Asset) => {
+    setEditLoading(asset.id);
+    try {
+      // Simulate a small delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 300));
+      openModal(asset);
+    } finally {
+      setEditLoading(null);
+    }
+  };
+
+  // Handle individual delete button click
+  const handleDeleteClick = async (asset: Asset) => {
+    setDeleteButtonLoading(asset.id);
+    try {
+      // Simulate a small delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setSelectedAsset(asset);
+      setDeleteModalOpen(true);
+    } finally {
+      setDeleteButtonLoading(null);
+    }
+  };
+
   const confirmDelete = async () => {
     if (selectedAsset) {
       try {
+        setDeleteLoading(true);
         await dispatch(deleteAsset(selectedAsset.id)).unwrap();
         setDeleteModalOpen(false);
       } catch (error) {
         console.error('Error deleting asset:', error);
+      } finally {
+        setDeleteLoading(false);
       }
     }
   };
@@ -341,19 +473,109 @@ export default function AssetsDashboard() {
         <h1 className="text-2xl font-bold">Assets Manager</h1>
         <div className="flex gap-2">
           <button
-            onClick={() => setSearchModalOpen(true)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg shadow text-sm font-medium"
+            onClick={() => setFilterOpen(true)}
+            disabled={loading}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed px-4 py-2 rounded-lg shadow text-sm font-medium transition-colors"
           >
-            <Search className="w-4 h-4" /> Import Song
+            <Filter className="w-4 h-4" /> 
+            Filter
+            {hasActiveFilters && (
+              <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                !
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setSearchModalOpen(true)}
+            disabled={loading}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed px-4 py-2 rounded-lg shadow text-sm font-medium transition-colors"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Loading...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" /> Import Song
+              </>
+            )}
           </button>
           <button
             onClick={() => openModal()}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow text-sm font-medium"
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed px-4 py-2 rounded-lg shadow text-sm font-medium transition-colors"
           >
-            <Plus className="w-4 h-4" /> Add Asset
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Loading...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" /> Add Asset
+              </>
+            )}
           </button>
         </div>
       </header>
+
+      {/* Active Filters Display */}
+      {hasActiveFilters && (
+        <div className="mb-4 p-3 bg-[#1b1b1b] rounded-lg border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-400 text-sm">Active filters:</span>
+              {filters.title && (
+                <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                  Title: {filters.title}
+                </span>
+              )}
+              {filters.artist && (
+                <span className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                  Artist: {filters.artist}
+                </span>
+              )}
+              {filters.genre && (
+                <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs">
+                  Genre: {filters.genre}
+                </span>
+              )}
+              {filters.type && (
+                <span className="bg-orange-600 text-white px-2 py-1 rounded text-xs">
+                  Type: {filters.type}
+                </span>
+              )}
+              {filters.status && (
+                <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                  Status: {filters.status}
+                </span>
+              )}
+              {filters.risk_rating && (
+                <span className="bg-pink-600 text-white px-2 py-1 rounded text-xs">
+                  Risk: {filters.risk_rating}
+                </span>
+              )}
+              {filters.minPrice && (
+                <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">
+                  Min Price: ${filters.minPrice}
+                </span>
+              )}
+              {filters.maxPrice && (
+                <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">
+                  Max Price: ${filters.maxPrice}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              <X className="w-4 h-4" /> Clear all
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {error && (
@@ -366,6 +588,7 @@ export default function AssetsDashboard() {
       {loading && (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-gray-400">Loading assets...</p>
         </div>
       )}
 
@@ -384,12 +607,13 @@ export default function AssetsDashboard() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Current ROI %</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Total Shares</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Available Shares</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Risk Rating</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-[#1b1b1b] divide-y divide-gray-700">
-            {assets.map(asset => (
+            {filteredAssets.map(asset => (
               <tr key={asset.id} className="hover:bg-gray-800">
                 <td className="px-6 py-4 whitespace-nowrap">
                   {asset.image_base64 ? (
@@ -425,6 +649,16 @@ export default function AssetsDashboard() {
                 <td className="px-6 py-4 whitespace-nowrap text-gray-300">{asset.available_shares}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    asset.risk_rating === 'low' ? 'bg-green-600 text-green-100' : 
+                    asset.risk_rating === 'medium' ? 'bg-yellow-600 text-yellow-100' : 
+                    asset.risk_rating === 'high' ? 'bg-red-600 text-red-100' :
+                    'bg-gray-600 text-gray-100'
+                  }`}>
+                    {asset.risk_rating ? asset.risk_rating.charAt(0).toUpperCase() + asset.risk_rating.slice(1) : 'Not Set'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                     asset.status === 'active' ? 'bg-green-600 text-green-100' : 'bg-red-600 text-red-100'
                   }`}>
                     {asset.status.charAt(0).toUpperCase() + asset.status.slice(1)}
@@ -432,16 +666,26 @@ export default function AssetsDashboard() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap flex gap-2">
                   <button 
-                    onClick={() => openModal(asset)} 
-                    className="p-2 bg-gray-700 hover:bg-gray-600 rounded"
+                    onClick={() => handleEditClick(asset)} 
+                    disabled={editLoading === asset.id}
+                    className="p-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed rounded transition-colors flex items-center justify-center w-10 h-10"
                   >
-                    <Pencil className="w-4 h-4" />
+                    {editLoading === asset.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Pencil className="w-4 h-4" />
+                    )}
                   </button>
                   <button 
-                    onClick={() => handleDelete(asset)} 
-                    className="p-2 bg-red-700 hover:bg-red-600 rounded"
+                    onClick={() => handleDeleteClick(asset)} 
+                    disabled={deleteButtonLoading === asset.id}
+                    className="p-2 bg-red-700 hover:bg-red-600 disabled:bg-red-800 disabled:cursor-not-allowed rounded transition-colors flex items-center justify-center w-10 h-10"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {deleteButtonLoading === asset.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                   </button>
                 </td>
               </tr>
@@ -449,14 +693,152 @@ export default function AssetsDashboard() {
           </tbody>
         </table>
 
-        {assets.length === 0 && !loading && (
+        {filteredAssets.length === 0 && !loading && (
           <div className="text-center py-12">
             <div className="text-gray-400 italic">
-              No assets found. Add one to get started.
+              {hasActiveFilters ? "No assets match your filters." : "No assets found. Add one to get started."}
             </div>
           </div>
         )}
       </div>
+
+      {/* Filter Modal */}
+      <Dialog open={filterOpen} onClose={() => setFilterOpen(false)} className="relative z-50">
+        <DialogBackdrop className="fixed inset-0 bg-black/70" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-[#1e1e1e] rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <DialogTitle className="text-xl font-bold text-white">
+                Filter Assets
+              </DialogTitle>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Title contains:</label>
+                <input
+                  type="text"
+                  placeholder="Filter by title..."
+                  value={filters.title}
+                  onChange={(e) => setFilters({ ...filters, title: e.target.value })}
+                  className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Artist contains:</label>
+                <input
+                  type="text"
+                  placeholder="Filter by artist..."
+                  value={filters.artist}
+                  onChange={(e) => setFilters({ ...filters, artist: e.target.value })}
+                  className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Genre contains:</label>
+                <input
+                  type="text"
+                  placeholder="Filter by genre..."
+                  value={filters.genre}
+                  onChange={(e) => setFilters({ ...filters, genre: e.target.value })}
+                  className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Type</label>
+                  <select
+                    value={filters.type}
+                    onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                  >
+                    <option value="">All Types</option>
+                    <option value="single">Single</option>
+                    <option value="basket">Basket</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                  >
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Risk Rating</label>
+                <select
+                  value={filters.risk_rating}
+                  onChange={(e) => setFilters({ ...filters, risk_rating: e.target.value })}
+                  className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                >
+                  <option value="">All Ratings</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Min Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Min price"
+                    value={filters.minPrice}
+                    onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Max Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Max price"
+                    value={filters.maxPrice}
+                    onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 transition-colors"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
 
       {/* Add/Edit Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} className="relative z-50">
@@ -475,6 +857,17 @@ export default function AssetsDashboard() {
               </button>
             </div>
 
+            {saveLoading && (
+              <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center z-20">
+                <div className="flex items-center gap-3 bg-[#2a2a2a] px-4 py-3 rounded-lg">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span className="text-white text-sm">
+                    {selectedAsset ? "Updating asset..." : "Creating asset..."}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Basic Information */}
               <div className="space-y-4">
@@ -486,6 +879,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="Asset title"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -497,6 +891,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('slug', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="auto-generated-if-empty"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -506,6 +901,7 @@ export default function AssetsDashboard() {
                     value={formData.type}
                     onChange={(e) => handleTypeChange(e.target.value as "single" | "basket")}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                    disabled={saveLoading}
                   >
                     <option value="single">Single</option>
                     <option value="basket">Basket</option>
@@ -519,6 +915,7 @@ export default function AssetsDashboard() {
                       value={formData.song_id}
                       onChange={(e) => handleInputChange('song_id', e.target.value)}
                       className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                      disabled={saveLoading}
                     >
                       <option value="">Select Song</option>
                       {songs.map(song => (
@@ -537,6 +934,7 @@ export default function AssetsDashboard() {
                       value={formData.basket_id}
                       onChange={(e) => handleInputChange('basket_id', e.target.value)}
                       className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                      disabled={saveLoading}
                     >
                       <option value="">Select Basket</option>
                       {baskets.map(basket => (
@@ -559,6 +957,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('artist', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="Artist name"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -570,6 +969,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('genre', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="Genre"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -582,6 +982,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('price', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="0.00"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -593,6 +994,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('total_shares', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="1000"
+                    disabled={saveLoading}
                   />
                 </div>
               </div>
@@ -611,6 +1013,7 @@ export default function AssetsDashboard() {
                     }}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="10.5"
+                    disabled={saveLoading}
                   />
                   <p className="text-xs text-gray-400 mt-1">Or use range below</p>
                 </div>
@@ -628,6 +1031,7 @@ export default function AssetsDashboard() {
                       }}
                       className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                       placeholder="8.0"
+                      disabled={saveLoading}
                     />
                   </div>
                   <div>
@@ -642,6 +1046,7 @@ export default function AssetsDashboard() {
                       }}
                       className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                       placeholder="15.0"
+                      disabled={saveLoading}
                     />
                   </div>
                 </div>
@@ -655,6 +1060,7 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('current_roi_percent', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="8.2"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -666,7 +1072,22 @@ export default function AssetsDashboard() {
                     onChange={(e) => handleInputChange('available_shares', e.target.value)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
                     placeholder="Auto-sets to total shares if empty"
+                    disabled={saveLoading}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Risk Rating</label>
+                  <select
+                    value={formData.risk_rating}
+                    onChange={(e) => handleInputChange('risk_rating', e.target.value)}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                    disabled={saveLoading}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
                 </div>
 
                 <div>
@@ -675,6 +1096,7 @@ export default function AssetsDashboard() {
                     value={formData.status}
                     onChange={(e) => handleInputChange('status', e.target.value as "active" | "inactive")}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                    disabled={saveLoading}
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -691,6 +1113,7 @@ export default function AssetsDashboard() {
                     accept="image/*"
                     onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                     className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700"
+                    disabled={saveLoading}
                   />
                 </div>
 
@@ -711,16 +1134,24 @@ export default function AssetsDashboard() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white"
+                disabled={saveLoading}
+                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                disabled={!formData.title || !formData.price || !formData.total_shares}
-                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!formData.title || !formData.price || !formData.total_shares || saveLoading}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-2"
               >
-                {selectedAsset ? "Update" : "Add"} Asset
+                {saveLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    {selectedAsset ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  selectedAsset ? "Update Asset" : "Add Asset"
+                )}
               </button>
             </div>
           </DialogPanel>
@@ -758,13 +1189,23 @@ export default function AssetsDashboard() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   className="flex-1 p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500"
+                  disabled={searchLoading}
                 />
                 <button
                   onClick={handleSearch}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white"
-                  disabled={!searchQuery.trim()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-800 disabled:cursor-not-allowed rounded text-white transition-colors flex items-center gap-2"
+                  disabled={!searchQuery.trim() || searchLoading}
                 >
-                  Search
+                  {searchLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Searching
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" /> Search
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -775,8 +1216,17 @@ export default function AssetsDashboard() {
                   {searchResults.map((track) => (
                     <div
                       key={track.spotify_id}
-                      className="flex items-center justify-between bg-[#222] rounded p-3"
+                      className="flex items-center justify-between bg-[#222] rounded p-3 relative"
                     >
+                      {importLoading === track.spotify_id && (
+                        <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                          <div className="flex items-center gap-2 bg-[#2a2a2a] px-3 py-2 rounded">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span className="text-white text-sm">Importing...</span>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex items-center gap-3">
                         {track.image_url && (
                           <img
@@ -795,9 +1245,19 @@ export default function AssetsDashboard() {
                       </div>
                       <button
                         onClick={() => importSpotifyAsAsset(track)}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm text-white"
+                        disabled={importLoading !== null}
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed rounded text-sm text-white transition-colors"
                       >
-                        <Download className="w-4 h-4" /> Import as Asset
+                        {importLoading === track.spotify_id ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Importing
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" /> Import as Asset
+                          </>
+                        )}
                       </button>
                     </div>
                   ))}
@@ -807,17 +1267,46 @@ export default function AssetsDashboard() {
 
             {/* Existing Songs Section */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-white">Existing Songs</h3>
-              {songs.length === 0 ? (
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-white">Existing Songs</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Filter existing songs..."
+                    value={songSearchQuery}
+                    onChange={(e) => setSongSearchQuery(e.target.value)}
+                    className="w-48 p-2 rounded bg-gray-800 text-white border border-gray-700 focus:border-blue-500 text-sm"
+                  />
+                  {songSearchQuery && (
+                    <button
+                      onClick={() => setSongSearchQuery("")}
+                      className="p-2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {filteredSongs.length === 0 ? (
                 <div className="text-gray-400 italic text-center py-4">
-                  No songs available. Search Spotify to import songs first.
+                  {songSearchQuery ? "No songs match your search." : "No songs available. Search Spotify to import songs first."}
                 </div>
               ) : (
-                songs.map((song) => (
+                filteredSongs.map((song) => (
                   <div
                     key={song.id}
-                    className="flex items-center justify-between bg-[#222] rounded p-3"
+                    className="flex items-center justify-between bg-[#222] rounded p-3 relative"
                   >
+                    {songImportLoading === song.id && (
+                      <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
+                        <div className="flex items-center gap-2 bg-[#2a2a2a] px-3 py-2 rounded">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span className="text-white text-sm">Creating Asset...</span>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-3">
                       {song.image_url ? (
                         <img
@@ -841,9 +1330,19 @@ export default function AssetsDashboard() {
                     </div>
                     <button
                       onClick={() => importSongAsAsset(song)}
-                      className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-sm text-white"
+                      disabled={songImportLoading !== null}
+                      className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:bg-green-800 disabled:cursor-not-allowed rounded text-sm text-white transition-colors"
                     >
-                      <Download className="w-4 h-4" /> Create Asset
+                      {songImportLoading === song.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4" /> Create Asset
+                        </>
+                      )}
                     </button>
                   </div>
                 ))
@@ -866,6 +1365,16 @@ export default function AssetsDashboard() {
                 Delete Asset
               </DialogTitle>
             </div>
+
+            {deleteLoading && (
+              <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center z-20">
+                <div className="flex items-center gap-3 bg-[#2a2a2a] px-4 py-3 rounded-lg">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span className="text-white text-sm">Deleting asset...</span>
+                </div>
+              </div>
+            )}
+
             <p className="text-gray-300 mb-6">
               Are you sure you want to delete <span className="font-bold">{selectedAsset?.title}</span>? 
               This action cannot be undone.
@@ -873,15 +1382,24 @@ export default function AssetsDashboard() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteModalOpen(false)}
-                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white"
+                disabled={deleteLoading}
+                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white"
+                disabled={deleteLoading}
+                className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 disabled:bg-red-800 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-2"
               >
-                Delete
+                {deleteLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </DialogPanel>

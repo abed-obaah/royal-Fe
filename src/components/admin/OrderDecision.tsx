@@ -1,4 +1,3 @@
-// OrderDecision.tsx
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../../store";
@@ -99,6 +98,8 @@ interface UserInvestmentDetail {
   image_base64: string | null;
   purchased_at: string;
   asset_status: string;
+  isEditing?: boolean;
+  editedPrice?: number;
 }
 
 interface UserInvestmentDetailsData {
@@ -111,6 +112,251 @@ interface UserInvestmentDetailsData {
     average_roi: number;
   };
 }
+
+// ROI Assignment Types
+interface RoiAssignment {
+  id: number;
+  asset_id: number;
+  roi_percentage: number;
+  yield_amount: number;
+  period: string;
+  type: 'dividend' | 'interest' | 'yield' | 'roi' | 'bonus';
+  description: string;
+  auto_distribute: boolean;
+  processed: boolean;
+  processed_at: string | null;
+  metadata: any;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  asset?: Asset;
+  distributions?: RoiDistribution[];
+}
+
+interface RoiDistribution {
+  id: number;
+  roi_assignment_id: number;
+  user_id: number;
+  portfolio_item_id: number;
+  asset_id: number;
+  shares_owned: number;
+  investment_value: number;
+  distribution_amount: number;
+  roi_percentage: number;
+  status: 'pending' | 'processed' | 'failed';
+  processed_at: string | null;
+  metadata: any;
+  created_at: string;
+  updated_at: string;
+  user?: any;
+  asset?: Asset;
+  assignment?: RoiAssignment;
+}
+
+// Pending Royalty Types
+interface PendingRoyalty {
+  id: number;
+  user_id: number;
+  portfolio_item_id: number;
+  asset_id: number;
+  asset_type: 'single' | 'basket';
+  amount: number;
+  royalty_rate: number;
+  period: string;
+  status: 'pending' | 'processed' | 'cancelled';
+  type: 'streaming' | 'sales' | 'performance' | 'mechanical';
+  description: string;
+  metadata: any;
+  processed_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  asset?: {
+    id: number;
+    title: string;
+    artist: string;
+    type: 'single' | 'basket';
+    cover_image?: string;
+  };
+}
+
+// API Functions for ROI
+const createRoiAssignment = async (data: {
+  asset_id: number;
+  roi_percentage: number;
+  yield_amount: number;
+  period: string;
+  type: 'dividend' | 'interest' | 'yield' | 'roi' | 'bonus';
+  description: string;
+  auto_distribute?: boolean;
+}): Promise<{
+  message: string;
+  assignment: RoiAssignment;
+}> => {
+  try {
+    const response = await api.post('/admin/roi/assignments', data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating ROI assignment:', error);
+    
+    // Extract the actual error message from the response
+    const errorMessage = error.response?.data?.message 
+      || error.message 
+      || 'Failed to create ROI assignment';
+    
+    throw new Error(errorMessage);
+  }
+};
+
+const getRoiAssignments = async (params?: {
+  asset_id?: number;
+  period?: string;
+  processed?: boolean;
+  per_page?: number;
+}): Promise<{
+  assignments: RoiAssignment[];
+  pagination: any;
+}> => {
+  try {
+    // Convert boolean to string 'true'/'false' for URL parameters
+    const queryParams: any = { ...params };
+    if (queryParams.processed !== undefined) {
+      queryParams.processed = queryParams.processed ? 'true' : 'false';
+    }
+    
+    const response = await api.get('/admin/roi/assignments', { params: queryParams });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching ROI assignments:', error);
+    throw new Error('Failed to load ROI assignments');
+  }
+};
+
+const processRoiDistribution = async (assignmentId: number): Promise<{
+  message: string;
+  processed_count: number;
+  total_amount: number;
+  failed_count: number;
+}> => {
+  try {
+    const response = await api.post(`/admin/roi/assignments/${assignmentId}/process`);
+    return response.data;
+  } catch (error) {
+    console.error('Error processing ROI distribution:', error);
+    throw new Error('Failed to process ROI distribution');
+  }
+};
+
+const getRoiStatistics = async (params?: {
+  period?: string;
+  asset_id?: number;
+}): Promise<{
+  statistics: {
+    total_yield: number;
+    processed_yield: number;
+    pending_yield: number;
+    total_assignments: number;
+    average_yield: number;
+  };
+  top_assets: any[];
+  monthly_breakdown: any[];
+}> => {
+  try {
+    const response = await api.get('/admin/roi/statistics', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching ROI statistics:', error);
+    throw new Error('Failed to load ROI statistics');
+  }
+};
+
+const getPendingRoyalties = async (params?: {
+  period?: string;
+  asset_id?: number;
+  user_id?: number;
+  per_page?: number;
+  page?: number;
+}): Promise<{
+  pending_royalties: PendingRoyalty[];
+  total_amount: number;
+  total_count: number;
+  pagination: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}> => {
+  try {
+    const response = await api.get('/admin/royalties/pending', { params });
+
+    console.log("Pending royalties response:", response.data); // <-- log it here
+
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching pending royalties:', error);
+    throw new Error('Failed to load pending royalties');
+  }
+};
+
+
+const processPendingRoyalties = async (data?: {
+  earning_ids?: number[];
+  period?: string;
+  user_id?: number;
+}): Promise<{
+  message: string;
+  processed_count: number;
+  total_amount: number;
+  failed_count: number;
+  failed_processes?: Array<{
+    earning_id: number;
+    error: string;
+  }>;
+}> => {
+  try {
+    const response = await api.post('/admin/royalties/process-pending', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error processing pending royalties:', error);
+    throw new Error('Failed to process pending royalties');
+  }
+};
+
+const processSingleRoyalty = async (earningId: number): Promise<{
+  message: string;
+  transaction_id: number;
+  amount: number;
+}> => {
+  try {
+    const response = await api.post(`/admin/royalties/${earningId}/process`);
+    return response.data;
+  } catch (error) {
+    console.error('Error processing single royalty:', error);
+    throw new Error('Failed to process royalty');
+  }
+};
+
+const cancelRoyalties = async (earningIds: number[], reason: string): Promise<{
+  message: string;
+  cancelled_count: number;
+}> => {
+  try {
+    const response = await api.post('/admin/royalties/cancel', {
+      earning_ids: earningIds,
+      reason: reason
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error cancelling royalties:', error);
+    throw new Error('Failed to cancel royalties');
+  }
+};
 
 const OrderDecision: React.FC<OrderDecisionProps> = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -152,11 +398,93 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
   const [investmentsLoading, setInvestmentsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'investments'>('orders');
 
+  // ROI Assignment State
+  const [showRoiModal, setShowRoiModal] = useState(false);
+  const [roiAssignments, setRoiAssignments] = useState<RoiAssignment[]>([]);
+  const [roiStatistics, setRoiStatistics] = useState<any>(null);
+  const [roiData, setRoiData] = useState({
+    asset_id: 0,
+    roi_percentage: 2.5,
+    yield_amount: 0,
+    period: new Date().toISOString().slice(0, 7),
+    type: 'dividend' as 'dividend' | 'interest' | 'yield' | 'roi' | 'bonus',
+    description: '',
+    auto_distribute: true
+  });
+  const [roiLoading, setRoiLoading] = useState(false);
+
+  // ROI Assignments View State
+  const [showRoiAssignmentsModal, setShowRoiAssignmentsModal] = useState(false);
+  const [roiAssignmentsLoading, setRoiAssignmentsLoading] = useState(false);
+
+  // Pending Royalties State
+  const [showPendingRoyaltiesModal, setShowPendingRoyaltiesModal] = useState(false);
+  const [pendingRoyalties, setPendingRoyalties] = useState<PendingRoyalty[]>([]);
+  const [pendingRoyaltiesLoading, setPendingRoyaltiesLoading] = useState(false);
+  const [selectedRoyalties, setSelectedRoyalties] = useState<number[]>([]);
+  const [processLoading, setProcessLoading] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [royaltiesFilter, setRoyaltiesFilter] = useState({
+    period: '',
+    asset_id: 0,
+    user_id: 0
+  });
+
+  // Edit Investment State
+  const [showEditInvestmentModal, setShowEditInvestmentModal] = useState(false);
+  const [selectedInvestment, setSelectedInvestment] = useState<UserInvestmentDetail | null>(null);
+  const [editInvestmentData, setEditInvestmentData] = useState({
+    current_price: 0,
+    quantity: 0,
+    reason: ''
+  });
+
   useEffect(() => {
     dispatch(fetchPendingSellOrders());
     fetchAssets();
     fetchAllUserInvestments();
+    fetchRoiData();
   }, [dispatch]);
+
+  // Investment Editing Functions
+  const handleEditInvestment = (investment: UserInvestmentDetail) => {
+    setSelectedInvestment(investment);
+    setEditInvestmentData({
+      current_price: investment.current_price,
+      quantity: investment.quantity,
+      reason: ''
+    });
+    setShowEditInvestmentModal(true);
+  };
+
+  const handleSaveInvestmentEdit = async () => {
+    if (!selectedInvestment || !selectedUser || !editInvestmentData.current_price || !editInvestmentData.quantity) {
+      setShowSuccessMessage('Please fill all required fields');
+      return;
+    }
+
+    try {
+      const response = await api.put(
+        `/admin/users/${selectedUser.user_id}/investments/${selectedInvestment.id}/update`,
+        editInvestmentData
+      );
+
+      setShowSuccessMessage('Investment updated successfully!');
+      
+      // Refresh the user investment details
+      if (selectedUser) {
+        await dispatch(fetchUserInvestmentDetails(selectedUser.user_id)).unwrap();
+      }
+      
+      setShowEditInvestmentModal(false);
+      setSelectedInvestment(null);
+      setEditInvestmentData({ current_price: 0, quantity: 0, reason: '' });
+    } catch (error: any) {
+      console.error('Error updating investment:', error);
+      setShowSuccessMessage(`Failed to update investment: ${error.message}`);
+    }
+  };
 
   const fetchAssets = async () => {
     try {
@@ -175,6 +503,132 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
     } catch (error: any) {
       console.error('fetchAssets error:', error);
       setShowSuccessMessage('Failed to fetch assets');
+    }
+  };
+
+  // Add this function to fetch ROI data
+  const fetchRoiData = async () => {
+    try {
+      const [assignmentsResponse, statsResponse] = await Promise.all([
+        getRoiAssignments(),
+        getRoiStatistics()
+      ]);
+      setRoiAssignments(assignmentsResponse.assignments);
+      setRoiStatistics(statsResponse.statistics);
+    } catch (error) {
+      console.error('Error fetching ROI data:', error);
+    }
+  };
+
+  // Add this function to fetch ROI assignments
+  const fetchRoiAssignments = async () => {
+    setRoiAssignmentsLoading(true);
+    try {
+      const response = await getRoiAssignments({ processed: false }); // Get pending assignments
+      setRoiAssignments(response.assignments);
+    } catch (error) {
+      console.error('Error fetching ROI assignments:', error);
+      setShowSuccessMessage('Failed to load ROI assignments');
+    } finally {
+      setRoiAssignmentsLoading(false);
+    }
+  };
+
+  // Pending Royalties Functions
+  const fetchPendingRoyalties = async () => {
+    setPendingRoyaltiesLoading(true);
+    try {
+      const response = await getPendingRoyalties(royaltiesFilter);
+      setPendingRoyalties(response.pending_royalties);
+    } catch (error: any) {
+      console.error('Error fetching pending royalties:', error);
+      setShowSuccessMessage('Failed to load pending royalties');
+    } finally {
+      setPendingRoyaltiesLoading(false);
+    }
+  };
+
+  const handleProcessSelectedRoyalties = async () => {
+    if (selectedRoyalties.length === 0) {
+      setShowSuccessMessage('Please select royalties to process');
+      return;
+    }
+
+    setProcessLoading(true);
+    try {
+      const result = await processPendingRoyalties({ earning_ids: selectedRoyalties });
+      setShowSuccessMessage(
+        `Successfully processed ${result.processed_count} royalties! Total: ${formatCurrency(result.total_amount)}`
+      );
+      setSelectedRoyalties([]);
+      await fetchPendingRoyalties();
+    } catch (error: any) {
+      setShowSuccessMessage(`Failed to process royalties: ${error.message}`);
+    } finally {
+      setProcessLoading(false);
+    }
+  };
+
+  const handleProcessAllRoyalties = async () => {
+    setProcessLoading(true);
+    try {
+      const result = await processPendingRoyalties(royaltiesFilter);
+      setShowSuccessMessage(
+        `Successfully processed ${result.processed_count} royalties! Total: ${formatCurrency(result.total_amount)}`
+      );
+      await fetchPendingRoyalties();
+    } catch (error: any) {
+      setShowSuccessMessage(`Failed to process royalties: ${error.message}`);
+    } finally {
+      setProcessLoading(false);
+    }
+  };
+
+  const handleProcessSingleRoyalty = async (earningId: number) => {
+    try {
+      const result = await processSingleRoyalty(earningId);
+      setShowSuccessMessage(
+        `Royalty processed successfully! Amount: ${formatCurrency(result.amount)}`
+      );
+      await fetchPendingRoyalties();
+    } catch (error: any) {
+      setShowSuccessMessage(`Failed to process royalty: ${error.message}`);
+    }
+  };
+
+  const handleCancelSelectedRoyalties = async () => {
+    if (selectedRoyalties.length === 0 || !cancelReason.trim()) {
+      setShowSuccessMessage('Please select royalties and provide a cancellation reason');
+      return;
+    }
+
+    try {
+      const result = await cancelRoyalties(selectedRoyalties, cancelReason);
+      setShowSuccessMessage(
+        `Successfully cancelled ${result.cancelled_count} royalties`
+      );
+      setSelectedRoyalties([]);
+      setCancelReason('');
+      setShowCancelModal(false);
+      await fetchPendingRoyalties();
+    } catch (error: any) {
+      setShowSuccessMessage(`Failed to cancel royalties: ${error.message}`);
+    }
+  };
+
+  const toggleSelectRoyalty = (earningId: number) => {
+    setSelectedRoyalties(prev =>
+      prev.includes(earningId)
+        ? prev.filter(id => id !== earningId)
+        : [...prev, earningId]
+    );
+  };
+
+  const selectAllRoyalties = () => {
+    if (selectedRoyalties.length === pendingRoyalties.length) {
+      setSelectedRoyalties([]);
+    } else {
+      setSelectedRoyalties(pendingRoyalties.map(royalty => royalty.id));
     }
   };
 
@@ -315,6 +769,54 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
     }
   };
 
+  // Add ROI assignment handler
+  const handleAssignRoi = async () => {
+    if (!roiData.asset_id || roiData.yield_amount <= 0) {
+      setShowSuccessMessage("Please select an asset and enter a valid yield amount");
+      return;
+    }
+
+    setRoiLoading(true);
+    try {
+      const result = await createRoiAssignment(roiData);
+      
+      setShowSuccessMessage(`ROI assigned successfully! Total yield: $${result.assignment.yield_amount}`);
+      
+      // Reset form
+      setRoiData({
+        asset_id: 0,
+        roi_percentage: 2.5,
+        yield_amount: 0,
+        period: new Date().toISOString().slice(0, 7),
+        type: 'dividend',
+        description: '',
+        auto_distribute: true
+      });
+      
+      // Refresh data
+      await fetchRoiData();
+      
+      setTimeout(() => {
+        setShowRoiModal(false);
+      }, 3000);
+    } catch (error: any) {
+      setShowSuccessMessage(`ROI assignment failed: ${error.message}`);
+    } finally {
+      setRoiLoading(false);
+    }
+  };
+
+  // Add process ROI distribution handler
+  const handleProcessRoiDistribution = async (assignmentId: number) => {
+    try {
+      const result = await processRoiDistribution(assignmentId);
+      setShowSuccessMessage(`ROI distribution processed! ${result.processed_count} users paid, total: $${result.total_amount}`);
+      await fetchRoiAssignments();
+    } catch (error: any) {
+      setShowSuccessMessage(`ROI distribution failed: ${error.message}`);
+    }
+  };
+
   // Helper function to get image source from base64 or URL
   const getImageSrc = (asset: any) => {
     if (asset?.image_base64) {
@@ -409,7 +911,7 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
   const totalInvested = userInvestments.reduce((sum, inv) => sum + inv.total_investment, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-6 md:p-8">
+    <div className="min-h-screen bg-[#222629] p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
@@ -429,6 +931,14 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
               <div className="text-blue-400 text-sm font-medium">Active Investors</div>
               <div className="text-white font-bold text-lg">{totalInvestors}</div>
             </div>
+
+            {/* Add ROI Yield Stat */}
+            {/* <div className="bg-gradient-to-r from-green-500/20 to-emerald-600/20 border border-green-500/30 rounded-xl px-4 py-3">
+              <div className="text-green-400 text-sm font-medium">Total ROI Yield</div>
+              <div className="text-white font-bold text-lg">
+                {roiStatistics ? formatCurrency(roiStatistics.total_yield) : '$0'}
+              </div>
+            </div> */}
             
             {/* Royalty Distribution Button */}
             <button
@@ -441,6 +951,24 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                 </svg>
                 <span className="text-purple-400 group-hover:text-purple-300 font-semibold">
                   Distribute Royalties
+                </span>
+              </div>
+            </button>
+
+            {/* Add Process Pending Royalties Button */}
+            <button
+              onClick={() => {
+                setShowPendingRoyaltiesModal(true);
+                fetchPendingRoyalties();
+              }}
+              className="bg-gradient-to-r from-orange-500/20 to-red-600/20 hover:from-orange-500/30 hover:to-red-600/30 border border-orange-500/30 hover:border-orange-500/50 rounded-xl px-6 py-3 transition-all duration-200 group"
+            >
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-orange-400 group-hover:text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-orange-400 group-hover:text-orange-300 font-semibold">
+                  Process Royalties
                 </span>
               </div>
             </button>
@@ -1215,6 +1743,255 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
           </div>
         )}
 
+        {/* Pending Royalties Modal */}
+        {showPendingRoyaltiesModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+                <h2 className="text-2xl font-bold text-white">Process Pending Royalties</h2>
+                <button
+                  onClick={() => setShowPendingRoyaltiesModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="p-6 border-b border-gray-700/50">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Period
+                    </label>
+                    <input
+                      type="month"
+                      value={royaltiesFilter.period}
+                      onChange={(e) => setRoyaltiesFilter(prev => ({ ...prev, period: e.target.value }))}
+                      className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Asset
+                    </label>
+                    <select
+                      value={royaltiesFilter.asset_id}
+                      onChange={(e) => setRoyaltiesFilter(prev => ({ ...prev, asset_id: parseInt(e.target.value) }))}
+                      className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value={0}>All Assets</option>
+                      {assets.map(asset => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.title} - {asset.artist}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={fetchPendingRoyalties}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="p-4 border-b border-gray-700/50 bg-gray-700/20">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedRoyalties.length === pendingRoyalties.length && pendingRoyalties.length > 0}
+                        onChange={selectAllRoyalties}
+                        className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-gray-400 text-sm">
+                        {selectedRoyalties.length} of {pendingRoyalties.length} selected
+                      </span>
+                    </div>
+                    <div className="text-white font-semibold">
+                      Total Pending: {formatCurrency(pendingRoyalties.reduce((sum, royalty) => sum + royalty.amount, 0))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleProcessSelectedRoyalties}
+                      disabled={processLoading || selectedRoyalties.length === 0}
+                      className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {processLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Process Selected ({selectedRoyalties.length})
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleProcessAllRoyalties}
+                      disabled={processLoading || pendingRoyalties.length === 0}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      Process All ({pendingRoyalties.length})
+                    </button>
+                    <button
+                      onClick={() => setShowCancelModal(true)}
+                      disabled={selectedRoyalties.length === 0}
+                      className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      Cancel Selected
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Royalties List */}
+              <div className="p-6">
+                {pendingRoyaltiesLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : pendingRoyalties.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <svg className="w-16 h-16 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-lg mb-2">No Pending Royalties</div>
+                    <div className="text-sm text-gray-400">All royalties have been processed or no pending royalties exist.</div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingRoyalties.map((royalty) => (
+                      <div
+                        key={royalty.id}
+                        className="bg-gray-700/30 rounded-xl border border-gray-600/50 p-4 hover:bg-gray-700/50 transition-all duration-200"
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={selectedRoyalties.includes(royalty.id)}
+                            onChange={() => toggleSelectRoyalty(royalty.id)}
+                            className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2 mt-2"
+                          />
+
+                          {/* Asset Image */}
+                          <img
+                            src={getImageSrc(royalty.asset)}
+                            alt={royalty.asset?.title}
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+
+                          {/* Royalty Details */}
+                          <div className="flex-1">
+                            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <h3 className="text-white font-semibold text-lg">{royalty.asset?.title}</h3>
+                                <p className="text-gray-400">{royalty.asset?.artist}</p>
+                                <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                                  <span>Period: {royalty.period}</span>
+                                  <span>•</span>
+                                  <span>Type: {royalty.type}</span>
+                                  <span>•</span>
+                                  <span>Rate: {royalty.royalty_rate}%</span>
+                                  <span>•</span>
+                                  <span>Created: {formatDate(royalty.created_at)}</span>
+                                </div>
+                                <p className="text-gray-300 mt-2">{royalty.description}</p>
+                                
+                                {/* User Info */}
+                                <div className="flex items-center gap-2 mt-3">
+                                  <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                                    {royalty.user?.name?.charAt(0) || 'U'}
+                                  </div>
+                                  <span className="text-gray-400 text-sm">
+                                    {royalty.user?.name || `User ${royalty.user_id}`}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Amount and Actions */}
+                              <div className="flex flex-col items-end gap-3">
+                                <div className="text-green-400 font-bold text-xl">
+                                  {formatCurrency(royalty.amount)}
+                                </div>
+                                <button
+                                  onClick={() => handleProcessSingleRoyalty(royalty.id)}
+                                  className="bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 border border-green-500/30 hover:border-green-500/50 px-3 py-1 rounded-lg text-sm font-semibold transition-all duration-200"
+                                >
+                                  Process
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Royalties Modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-md">
+              <div className="p-6 border-b border-gray-700/50">
+                <h3 className="text-xl font-bold text-white">Cancel Royalties</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="text-gray-300">
+                  You are about to cancel {selectedRoyalties.length} royalty payment{selectedRoyalties.length !== 1 ? 's' : ''}. 
+                  This action cannot be undone.
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Cancellation Reason
+                  </label>
+                  <textarea
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    rows={3}
+                    className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                    placeholder="Please provide a reason for cancellation..."
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleCancelSelectedRoyalties}
+                    disabled={!cancelReason.trim()}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Confirm Cancel
+                  </button>
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="px-6 py-3 border border-gray-600 text-gray-400 hover:text-white hover:border-gray-500 rounded-xl transition-all duration-200"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* User Investments Detail Modal */}
         {showInvestmentsModal && selectedUser && userInvestmentDetails && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1255,7 +2032,7 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                       {formatCurrency(userInvestmentDetails.summary.total_current_value)}
                     </div>
                   </div>
-                  <div className={`border rounded-xl p-4 ${
+                  {/* <div className={`border rounded-xl p-4 ${
                     userInvestmentDetails.summary.total_profit_loss >= 0 
                       ? 'bg-green-500/20 border-green-500/30' 
                       : 'bg-red-500/20 border-red-500/30'
@@ -1275,7 +2052,7 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                     }`}>
                       {userInvestmentDetails.summary.average_roi.toFixed(2)}% ROI
                     </div>
-                  </div>
+                  </div> */}
                 </div>
 
                 {/* Investment Details */}
@@ -1333,26 +2110,13 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                             </div>
                             <div>
                               <div className="text-gray-400 text-sm">Current Price</div>
-                              <div className="text-white font-semibold">{formatCurrency(investment.current_price)}</div>
+                              <div className="text-white font-semibold">
+                                {formatCurrency(investment.current_price)}
+                              </div>
                             </div>
                             <div>
                               <div className="text-gray-400 text-sm">Current Value</div>
                               <div className="text-white font-semibold">{formatCurrency(investment.current_value)}</div>
-                            </div>
-                          </div>
-
-                          {/* Performance */}
-                          <div className="text-center">
-                            <div className="text-gray-400 text-sm">Profit/Loss</div>
-                            <div className={`font-semibold text-lg ${
-                              investment.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                              {formatCurrency(investment.profit_loss)}
-                            </div>
-                            <div className={`text-sm ${
-                              investment.profit_loss >= 0 ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                              {((investment.profit_loss / investment.total_investment) * 100).toFixed(2)}%
                             </div>
                           </div>
                         </div>
@@ -1380,10 +2144,103 @@ const OrderDecision: React.FC<OrderDecisionProps> = () => {
                           >
                             Distribute Royalties
                           </button>
+                          
+                          {/* Edit Investment Button */}
+                          <button
+                            onClick={() => handleEditInvestment(investment)}
+                            className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 hover:border-yellow-500/50 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200"
+                          >
+                            Edit Investment
+                          </button>
                         </div>
                       </div>
                     ))
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Investment Modal */}
+        {showEditInvestmentModal && selectedInvestment && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700/50 shadow-2xl w-full max-w-md">
+              <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+                <h2 className="text-2xl font-bold text-white">Edit Investment</h2>
+                <button
+                  onClick={() => setShowEditInvestmentModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Current Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editInvestmentData.current_price}
+                    onChange={(e) => setEditInvestmentData(prev => ({
+                      ...prev,
+                      current_price: parseFloat(e.target.value) || 0
+                    }))}
+                    className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Quantity (Shares)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editInvestmentData.quantity}
+                    onChange={(e) => setEditInvestmentData(prev => ({
+                      ...prev,
+                      quantity: parseInt(e.target.value) || 0
+                    }))}
+                    className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Reason for Change
+                  </label>
+                  <textarea
+                    value={editInvestmentData.reason}
+                    onChange={(e) => setEditInvestmentData(prev => ({
+                      ...prev,
+                      reason: e.target.value
+                    }))}
+                    rows={3}
+                    className="w-full bg-gray-700/50 border border-gray-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Explain why you're making these changes..."
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleSaveInvestmentEdit}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => setShowEditInvestmentModal(false)}
+                    className="px-6 py-3 border border-gray-600 text-gray-400 hover:text-white hover:border-gray-500 rounded-xl transition-all duration-200"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>

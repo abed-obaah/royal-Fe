@@ -151,7 +151,7 @@ export default function WalletUI() {
       <div className="bg-[#222629] p-3 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between">
        <div className="flex flex-col space-y-6 sm:space-y-8 md:space-y-10 w-full max-w-xl mx-auto">
   {/* Currency Selector */}
-  <div className="flex justify-start sm:justify-end">
+  <div className="flex justify-start ">
     <div className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:outline-none">
       <p>{currency}</p>
     </div>
@@ -159,19 +159,22 @@ export default function WalletUI() {
 
   {/* Balance + Toggle */}
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-    <div className="text-center sm:text-left">
-      <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white break-words">
+    <div className="sm:text-left">
+      <div className="flex items-center space-x-4">
+         <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white break-words">
         {showBalance ? `${currency} ${totalBalance.toFixed(2)}` : "••••••"}
+      </div>
+       <button
+        onClick={() => setShowBalance(!showBalance)}
+        className="flex justify-center sm:justify-end text-gray-400 hover:text-white transition-colors"
+         >
+       {showBalance ? <EyeOff size={22} /> : <Eye size={22} />}
+      </button>
       </div>
       <div className="text-blue-400 text-sm sm:text-base mt-1">Total Balance</div>
     </div>
 
-    <button
-      onClick={() => setShowBalance(!showBalance)}
-      className="flex justify-center sm:justify-end text-gray-400 hover:text-white transition-colors"
-    >
-      {showBalance ? <EyeOff size={22} /> : <Eye size={22} />}
-    </button>
+   
   </div>
 
   {/* Buttons */}

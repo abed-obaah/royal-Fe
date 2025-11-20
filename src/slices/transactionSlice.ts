@@ -1,3 +1,4 @@
+// transactionSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { 
   Transaction, 
@@ -78,6 +79,21 @@ export const updateTransaction = createAsyncThunk(
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update transaction');
+    }
+  }
+);
+
+// NEW: Admin transaction update thunk
+export const updateTransactionAdmin = createAsyncThunk(
+  'transactions/updateTransactionAdmin',
+  async ({ id, transactionData }: { id: number; transactionData: any }, { rejectWithValue }) => {
+    try {
+      console.log('Sending update data:', transactionData); // Debug log
+      const response = await api.put(`/admin/transactions/${id}/update`, transactionData);
+      return response.data;
+    } catch (error: any) {
+      console.error('API Error:', error.response?.data); // Debug log
+      return rejectWithValue(error.response?.data?.message || error.response?.data?.errors || 'Failed to update transaction');
     }
   }
 );
@@ -275,6 +291,31 @@ const transactionSlice = createSlice({
         if (userTransactionIndex !== -1) {
           state.userTransactions[userTransactionIndex] = updatedTransaction;
         }
+      })
+      // NEW: Update transaction admin
+      .addCase(updateTransactionAdmin.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateTransactionAdmin.fulfilled, (state, action: PayloadAction<{ transaction: Transaction }>) => {
+        state.loading = false;
+        const updatedTransaction = action.payload.transaction;
+        
+        // Update in transactions list
+        const transactionIndex = state.transactions.findIndex(t => t.id === updatedTransaction.id);
+        if (transactionIndex !== -1) {
+          state.transactions[transactionIndex] = updatedTransaction;
+        }
+        
+        // Update in user transactions list
+        const userTransactionIndex = state.userTransactions.findIndex(t => t.id === updatedTransaction.id);
+        if (userTransactionIndex !== -1) {
+          state.userTransactions[userTransactionIndex] = updatedTransaction;
+        }
+      })
+      .addCase(updateTransactionAdmin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       })
       // Upload proof
       .addCase(uploadProof.fulfilled, (state, action: PayloadAction<{ transaction: Transaction }>) => {

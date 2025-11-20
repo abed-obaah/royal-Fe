@@ -10,7 +10,8 @@ import {
   FaPiggyBank,
   FaRocket,
   FaShieldAlt,
-  FaBalanceScale
+  FaBalanceScale,
+  FaCheck
 } from 'react-icons/fa';
 import {
   TrendingUp,
@@ -100,10 +101,17 @@ const MetricCard = ({ title, value, change, icon, color, subtitle }) => (
       <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
         {icon}
       </div>
-      <div className={`flex items-center text-sm font-medium ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-        {change >= 0 ? <FaArrowUp className="mr-1" /> : <FaArrowDown className="mr-1" />}
-        {Math.abs(change)}%
-      </div>
+      {change !== null && change !== undefined ? (
+        <div className={`flex items-center text-sm font-medium ${change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {change >= 0 ? <FaArrowUp className="mr-1" /> : <FaArrowDown className="mr-1" />}
+          {Math.abs(change).toFixed(2)}%
+        </div>
+      ) : (
+        <div className="flex items-center text-sm font-medium text-green-400">
+          <FaCheck className="mr-1" />
+          Active
+        </div>
+      )}
     </div>
     <h3 className="text-2xl font-bold text-white mb-1">{value}</h3>
     <p className="text-gray-400 text-sm font-medium">{title}</p>
@@ -131,12 +139,59 @@ export default function PortfolioDashboard() {
   const [timeframe, setTimeframe] = useState('1m');
 
   useEffect(() => {
-    dispatch(fetchPortfolio());
+    console.log('🔄 PortfolioDashboard: Dispatching fetchPortfolio...');
+    dispatch(fetchPortfolio())
+      .unwrap()
+      .then((result) => {
+        console.log('✅ PortfolioDashboard: fetchPortfolio successful!');
+        console.log('📊 Portfolio Response:', result);
+        console.log('📦 Portfolio structure:', {
+          total_value: result?.total_value,
+          items_count: result?.items?.length,
+          items_structure: result?.items?.[0] ? Object.keys(result.items[0]) : 'No items',
+          sample_item: result?.items?.[0]
+        });
+      })
+      .catch((error) => {
+        console.error('❌ PortfolioDashboard: fetchPortfolio failed:', error);
+      });
   }, [dispatch]);
+
+  // Debug portfolio data whenever it changes
+  useEffect(() => {
+    if (portfolio) {
+      console.log('🔄 PortfolioDashboard: Portfolio data updated');
+      console.log('📊 Current Portfolio Data:', portfolio);
+      console.log('🔍 Portfolio Items Analysis:', {
+        totalItems: portfolio?.items?.length || 0,
+        totalValue: portfolio?.total_value || 0,
+        items: portfolio?.items?.map(item => ({
+          id: item.id,
+          asset_type: item.asset_type,
+          current_value: item.current_value,
+          purchase_price: item.purchase_price,
+          quantity: item.quantity,
+          asset: item.asset ? {
+            id: item.asset.id,
+            title: item.asset.title,
+            current_roi_percent: item.asset.current_roi_percent,
+            risk_rating: item.asset.risk_rating
+          } : 'No asset data'
+        }))
+      });
+    }
+  }, [portfolio]);
 
   // Safe value handling
   const totalValue = portfolio?.total_value || 0;
   const items = portfolio?.items || [];
+
+  console.log('📈 PortfolioDashboard Render Data:', {
+    totalValue,
+    itemsCount: items.length,
+    loading,
+    itemsSample: items.slice(0, 2) // Show first 2 items for debugging
+  });
 
   // Format currency
   const formatCurrency = (value) => {
@@ -151,6 +206,8 @@ export default function PortfolioDashboard() {
 
   // Calculate comprehensive portfolio metrics
   const portfolioMetrics = items.reduce((acc, item) => {
+    console.log('📊 Processing portfolio item:', item);
+    
     const currentValue = Number(item.current_value) || 0;
     const purchaseValue = Number(item.purchase_price) * Number(item.quantity);
     const gainLoss = currentValue - purchaseValue;
@@ -178,6 +235,14 @@ export default function PortfolioDashboard() {
       acc.riskDistribution[riskRating] += currentValue;
     }
 
+    console.log('📈 Item metrics:', {
+      currentValue,
+      purchaseValue,
+      gainLoss,
+      assetROI,
+      riskRating
+    });
+
     return acc;
   }, {
     totalValue: 0,
@@ -190,12 +255,16 @@ export default function PortfolioDashboard() {
     riskDistribution: {}
   });
 
+  console.log('🎯 Final Portfolio Metrics:', portfolioMetrics);
+
   // Calculate allocation with ROI analysis
   const allocation = items.reduce((acc, item) => {
     const type = item.asset_type || 'other';
     const currentValue = Number(item.current_value) || 0;
     const purchaseValue = Number(item.purchase_price) * Number(item.quantity);
     const assetROI = Number(item.asset?.current_roi_percent) || 0;
+
+    console.log('📋 Allocation processing:', { type, currentValue, assetROI });
 
     if (!acc[type]) {
       acc[type] = {
@@ -224,6 +293,8 @@ export default function PortfolioDashboard() {
     return acc;
   }, {});
 
+  console.log('📊 Final Allocation Data:', allocation);
+
   // Chart data functions
   const getAllocationChartData = () => {
     const labels = Object.keys(allocation);
@@ -234,7 +305,7 @@ export default function PortfolioDashboard() {
       '#F97316', '#6366F1'
     ];
 
-    return {
+    const chartData = {
       labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
       datasets: [
         {
@@ -246,6 +317,9 @@ export default function PortfolioDashboard() {
         }
       ]
     };
+
+    console.log('📊 Allocation Chart Data:', chartData);
+    return chartData;
   };
 
   const getROIAnalysisChartData = () => {
@@ -255,7 +329,7 @@ export default function PortfolioDashboard() {
       return data.count > 0 ? data.totalROI / data.count : 0;
     });
 
-    return {
+    const chartData = {
       labels: types.map(type => type.charAt(0).toUpperCase() + type.slice(1)),
       datasets: [
         {
@@ -269,6 +343,9 @@ export default function PortfolioDashboard() {
         }
       ]
     };
+
+    console.log('📊 ROI Analysis Chart Data:', chartData);
+    return chartData;
   };
 
   const getPerformanceChartData = () => {
@@ -280,7 +357,7 @@ export default function PortfolioDashboard() {
       return growth + (Math.random() * base * 0.1); // Add some variance
     });
 
-    return {
+    const chartData = {
       labels: months,
       datasets: [
         {
@@ -293,6 +370,9 @@ export default function PortfolioDashboard() {
         }
       ]
     };
+
+    console.log('📊 Performance Chart Data:', chartData);
+    return chartData;
   };
 
   const getRiskDistributionData = () => {
@@ -300,7 +380,7 @@ export default function PortfolioDashboard() {
     const labels = Object.keys(riskData);
     const values = Object.values(riskData);
 
-    return {
+    const chartData = {
       labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
       datasets: [
         {
@@ -320,9 +400,13 @@ export default function PortfolioDashboard() {
         }
       ]
     };
+
+    console.log('📊 Risk Distribution Chart Data:', chartData);
+    return chartData;
   };
 
   if (loading) {
+    console.log('⏳ PortfolioDashboard: Loading state');
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950 flex items-center justify-center">
         <div className="text-center">
@@ -333,6 +417,8 @@ export default function PortfolioDashboard() {
     );
   }
 
+  console.log('✅ PortfolioDashboard: Render with data');
+
   const totalGainLossPercent = portfolioMetrics.totalPurchaseValue > 0
     ? (portfolioMetrics.totalGainLoss / portfolioMetrics.totalPurchaseValue) * 100
     : 0;
@@ -340,6 +426,13 @@ export default function PortfolioDashboard() {
   const avgROI = Object.values(allocation).reduce((sum: number, data: any) => {
     return sum + (data.count > 0 ? data.totalROI / data.count : 0);
   }, 0) / (Object.keys(allocation).length || 1);
+
+  console.log('📈 Final Calculated Metrics:', {
+    totalGainLossPercent,
+    avgROI,
+    totalValue,
+    portfolioMetrics
+  });
 
   return (
     <div className="min-h-screen ">
@@ -370,42 +463,46 @@ export default function PortfolioDashboard() {
       {/* Main Content */}
       <main className="p-6 space-y-6">
         {/* Performance Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard
-            title="Total Portfolio Value"
-            value={showBalance ? formatCurrency(totalValue) : '••••••'}
-            change={totalGainLossPercent}
-            icon={<DollarSign className="text-blue-400" size={24} />}
-            color="text-blue-400"
-            subtitle="Based on current market prices"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 lg:grid-cols-3 md:grid-cols-2 gap-4 sm:gap-6">
+  <MetricCard
+    title="Average ROI"
+    value={showBalance ? `${avgROI.toFixed(2)}%` : '•••%'}
+    change={avgROI}
+    icon={<Target className="text-purple-400" size={24} />}
+    color="text-purple-400"
+    subtitle="Across all assets"
+    className="min-w-0" // Prevent overflow
+  />
+  <MetricCard
+    title="Total Portfolio Value"
+    value={showBalance ? formatCurrency(totalValue) : '••••••'}
+    change={null}
+    icon={<DollarSign className="text-blue-400" size={24} />}
+    color="text-blue-400"
+    subtitle="Based on current market prices"
+    className="min-w-0"
+  />
 
-          <MetricCard
-            title="Total Return"
-            value={showBalance ? formatCurrency(portfolioMetrics.totalGainLoss) : '••••••'}
-            change={totalGainLossPercent}
-            icon={<TrendingUp className="text-green-400" size={24} />}
-            color="text-green-400"
-            subtitle="All-time performance"
-          />
+  {/* <MetricCard
+    title="Total Return"
+    value={showBalance ? formatCurrency(portfolioMetrics.totalGainLoss) : '••••••'}
+    change={totalGainLossPercent}
+    icon={<TrendingUp className="text-green-400" size={24} />}
+    color="text-green-400"
+    subtitle="All-time performance"
+    className="min-w-0"
+  /> */}
 
-          <MetricCard
-            title="Average ROI"
-            value={showBalance ? `${avgROI.toFixed(1)}%` : '•••%'}
-            change={avgROI}
-            icon={<Target className="text-purple-400" size={24} />}
-            color="text-purple-400"
-            subtitle="Across all assets"
-          />
+  <MetricCard
+    title="Active Investments"
+    value={portfolioMetrics.assetCount.toString()}
+    change={null}
+    icon={<PieChart className="text-orange-400" size={24} />}
+    color="text-orange-400"
+    subtitle="Diversified portfolio"
+    className="min-w-0"
+  />
 
-          <MetricCard
-            title="Active Investments"
-            value={portfolioMetrics.assetCount.toString()}
-            change={10}
-            icon={<PieChart className="text-orange-400" size={24} />}
-            color="text-orange-400"
-            subtitle="Diversified portfolio"
-          />
         </div>
 
         {/* Charts Grid */}
@@ -444,7 +541,7 @@ export default function PortfolioDashboard() {
           </div>
 
           {/* Risk Distribution */}
-          {/* <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 border border-gray-700">
+          {/* <div className="bg-[#222629] rounded-2xl p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-white">Risk Distribution</h3>
               <Activity className="text-gray-400" size={20} />
@@ -462,6 +559,12 @@ export default function PortfolioDashboard() {
             {Object.entries(allocation).map(([type, data]: [string, any]) => {
               const avgROI = data.count > 0 ? data.totalROI / data.count : 0;
               const allocationPercent = totalValue > 0 ? (data.value / totalValue) * 100 : 0;
+
+              console.log(`📊 Rendering asset type: ${type}`, {
+                avgROI,
+                allocationPercent,
+                data
+              });
 
               return (
                 <div key={type} className="bg-gray-700/30 rounded-xl p-4 border border-gray-600">
@@ -487,7 +590,7 @@ export default function PortfolioDashboard() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Avg ROI</span>
                       <span className={`font-medium ${avgROI >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {avgROI.toFixed(1)}%
+                        {avgROI.toFixed(2)}%
                       </span>
                     </div>
 
@@ -495,7 +598,7 @@ export default function PortfolioDashboard() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Best Performer</span>
                         <span className="text-green-400 font-medium">
-                          {data.bestPerformer.roi.toFixed(1)}%
+                          {data.bestPerformer.roi.toFixed(2)}%
                         </span>
                       </div>
                     )}
@@ -504,7 +607,7 @@ export default function PortfolioDashboard() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Lowest ROI</span>
                         <span className="text-red-400 font-medium">
-                          {data.worstPerformer.roi.toFixed(1)}%
+                          {data.worstPerformer.roi.toFixed(2)}%
                         </span>
                       </div>
                     )}

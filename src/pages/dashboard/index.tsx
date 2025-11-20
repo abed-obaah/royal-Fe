@@ -24,6 +24,8 @@ import {
   UsersIcon,
   XMarkIcon,
   ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/20/solid';
 import Logo from '../../assets/RoyaFi.png';
@@ -41,11 +43,14 @@ import { RootState } from "../../store";
 import { clearCredentials } from "../../slices/userSlice";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import KYCVerificationModal from "@/components/KYCVerificationModal";
+import { profileApi } from "../../api/profile";
+import { toast } from "react-toastify";
+import { useNotifications } from "../../context/NotificationsContext";
 
 // Create components for each section
-const HomeContent = ({ user }: { user: any }) => {
-  const isVerified = !!user?.email_verified_at; // true if email_verified_at has a value
-   const [greeting, setGreeting] = useState("Hello");
+const HomeContent = ({ user, verificationStatus, onKYCRequired, onDepositRequired }: { user: any; verificationStatus: string; onKYCRequired?: () => void; onDepositRequired?: () => void }) => {
+  const [greeting, setGreeting] = useState("Hello");
 
   useEffect(() => {
     const currentHour = new Date().getHours();
@@ -59,43 +64,72 @@ const HomeContent = ({ user }: { user: any }) => {
     }
   }, []);
 
+  const getKYCStatusBadge = () => {
+    switch (verificationStatus) {
+      case 'approved':
+        return (
+          <span className="inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium bg-green-50 text-green-700 ring-1 ring-green-600/20">
+            <CheckCircleIcon className="w-3 h-3" />
+            KYC Verified
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/20">
+            <ClockIcon className="w-3 h-3" />
+            KYC Under Review
+          </span>
+        );
+      case 'rejected':
+        return (
+          <span className="inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium bg-red-50 text-red-700 ring-1 ring-red-600/20">
+            <ExclamationTriangleIcon className="w-3 h-3" />
+            KYC Update Required
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium bg-red-50 text-red-700 ring-1 ring-red-600/20">
+            <ExclamationTriangleIcon className="w-3 h-3" />
+            KYC Required
+          </span>
+        );
+    }
+  };
+
+  const getEmailVerificationBadge = () => {
+    const isVerified = !!user?.email_verified_at;
+    return (
+      <span className={`inline-flex items-center gap-x-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium ring-1 ${
+        isVerified
+          ? "bg-green-50 text-green-700 ring-green-600/20"
+          : "bg-red-50 text-red-700 ring-red-600/20"
+      }`}>
+        {isVerified ? <CheckCircleIcon className="w-3 h-3" /> : <ExclamationTriangleIcon className="w-3 h-3" />}
+        {isVerified ? "Email Verified" : "Email Not Verified"}
+      </span>
+    );
+  };
+
   return (
     <div>
       <div className="md:flex md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-xl/7 font-bold text-[#ebecec] sm:truncate sm:text-2xl sm:tracking-tight">
-        {greeting}, {user?.name?.split(" ")[0]}{" "}
-        {greeting === "Good Morning" ? "☀️" : greeting === "Good Afternoon" ? "🌤️" : "🌙"}
-      </h2>
+            {greeting}, {user?.name?.split(" ")[0]}{" "}
+            {greeting === "Good Morning" ? "☀️" : greeting === "Good Afternoon" ? "🌤️" : "🌙"}
+          </h2>
         </div>
-        <div className="mt-4 flex md:mt-0 md:ml-4">
-          <span
-            className={`inline-flex items-center gap-x-0.5 rounded-md px-2 py-1 text-xs font-medium inset-ring ${
-              isVerified
-                ? "bg-green-50 text-green-700 inset-ring-green-600/10"
-                : "bg-red-50 text-red-700 inset-ring-red-600/10"
-            }`}
-          >
-            {isVerified ? "Verified" : "Not Verified"}
-            {!isVerified && (
-              <button
-                type="button"
-                className="group relative -mr-1 size-3.5 rounded-xs hover:bg-red-600/20"
-              >
-                <span className="sr-only">Remove</span>
-                <svg
-                  viewBox="0 0 14 14"
-                  className="size-3.5 stroke-red-600/50 group-hover:stroke-red-600/75"
-                >
-                  <path d="M4 4l6 6m0-6l-6 6" />
-                </svg>
-                <span className="absolute -inset-1" />
-              </button>
-            )}
-          </span>
+        <div className="mt-4 flex md:mt-0 md:ml-4 space-x-2">
+          {getKYCStatusBadge()}
+          {getEmailVerificationBadge()}
         </div>
       </div>
-      <MusicDashboard />
+      <MusicDashboard 
+        verificationStatus={verificationStatus} 
+        onKYCRequired={onKYCRequired}
+        onDepositRequired={onDepositRequired}
+      />
     </div>
   );
 };
@@ -172,28 +206,101 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
 }
 
-export default function Example() {
+export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('Home')
   const [open, setOpen] = useState(false);
   const [openNotif, setOpenNotif] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string>('not_submitted');
+  const [hasCheckedKYC, setHasCheckedKYC] = useState(false);
+    const { hasUnreadNotifications } = useNotifications();
   const user = useSelector((state: RootState) => state.user.user);
   const token = useSelector((state: RootState) => state.user.token);
+  const wallet = useSelector((state: RootState) => state.wallet?.wallet);
   
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  // Calculate if user has balance
+  const hasBalance = (wallet?.available_balance || 0) > 0;
+
   const handleNavClick = (name) => {
     setActiveNav(name);
+  };
+
+  // Check KYC status on component mount
+  useEffect(() => {
+    verifyKYCStatus();
+  }, [user]);
+
+  const verifyKYCStatus = async () => {
+    if (!user || hasCheckedKYC) return;
+
+    try {
+      const response = await profileApi.getVerificationStatus();
+      const status = response.verification?.status || 'not_submitted';
+      setVerificationStatus(status);
+      setHasCheckedKYC(true);
+      
+      console.log('KYC Status:', status); // Debug log
+      
+      // Show KYC modal if not submitted or rejected (after a short delay)
+      if (status === 'not_submitted' || status === 'rejected') {
+        setTimeout(() => {
+          setShowKYCModal(true);
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Failed to fetch verification status:', error);
+      setHasCheckedKYC(true);
+    }
+  };
+
+  const handleVerificationSubmitted = () => {
+    setVerificationStatus('pending');
+    setShowKYCModal(false);
+    
+    // Show success toast instead of deposit modal
+    toast.success(
+      <div>
+        <div className="font-semibold">Verification Submitted! ✅</div>
+        <div className="text-sm mt-1">
+          Your KYC documents have been submitted and are under review.
+        </div>
+        <div className="text-xs mt-2 text-gray-300">
+          You will be notified once your verification is complete.
+        </div>
+      </div>,
+      {
+        position: "top-right",
+        autoClose: 8000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        style: { background: '#1f2937', color: 'white' }
+      }
+    );
+
+    // Refetch the verification status after a delay
+    setTimeout(() => {
+      verifyKYCStatus();
+    }, 2000);
+  };
+
+  const handleDepositRequired = () => {
+    // Show deposit modal (kept for other purposes, but not triggered by KYC)
+    setShowDepositModal(true);
   };
 
   const ActiveComponent = navigation.find(item => item.name === activeNav)?.component || HomeContent;
 
   const handleLogout = () => {
     dispatch(clearCredentials());
-    navigate("/"); // Redirect to login page
+    navigate("/");
   };
 
   const handleUserNavigationClick = (item: any) => {
@@ -207,11 +314,40 @@ export default function Example() {
   // Check if user is suspended
   const isSuspended = user?.status === 'suspended';
 
+  // Render the active component with props
+  const renderActiveComponent = () => {
+    if (ActiveComponent === HomeContent) {
+      return (
+        <ActiveComponent 
+          user={user} 
+          verificationStatus={verificationStatus} 
+          onKYCRequired={() => setShowKYCModal(true)}
+          onDepositRequired={() => setShowDepositModal(true)}
+        />
+      );
+    }
+    return <ActiveComponent user={user} />;
+  };
+
   return (
     <>
       <div className="bg-[#31373e]">
         {/* Suspension Modal - appears when user is suspended */}
         {isSuspended && <SuspensionModal onLogout={handleLogout} />}
+        
+        {/* KYC Verification Modal */}
+        <KYCVerificationModal 
+          isOpen={showKYCModal}
+          onClose={() => setShowKYCModal(false)}
+          onVerificationSubmitted={handleVerificationSubmitted}
+          currentStatus={verificationStatus as any}
+        />
+
+        {/* Deposit Modal - kept for manual deposit triggers */}
+        <CryptoPaymentModal 
+          isOpen={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+        />
         
         <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
           <DialogBackdrop
@@ -343,60 +479,73 @@ export default function Example() {
             <div aria-hidden="true" className="h-6 w-px bg-gray-200 lg:hidden" />
 
             <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-              <form action="#" method="GET" className="grid flex-1 grid-cols-1">
-                <input
-                  name="search"
-                  placeholder="Search"
-                  aria-label="Search"
-                  className="col-start-1 row-start-1 block size-full bg-[#31373e] pl-8 text-base text-gray-900 outline-hidden placeholder:text-gray-400 sm:text-md/6"
-                />
-                <MagnifyingGlassIcon
-                  aria-hidden="true"
-                  className="pointer-events-none col-start-1 row-start-1 size-5 self-center text-gray-400"
-                />
-              </form>
+   <p className="grid flex-1 grid-cols-1 bg-[#31373e] pl-8 text-base text-gray-900 sm:text-md/6 relative">
+ 
+</p>
+
+
               <div className="flex items-center gap-x-4 lg:gap-x-6">
-                <button type="button" onClick={() => setOpen(true)}  className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
-                  <span className="sr-only">View notifications</span>
+                <button 
+                  type="button" 
+                  onClick={() => setOpen(true)}  
+                  className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
+                >
+                  <span className="sr-only">View referrals</span>
                   <GiftIcon aria-hidden="true" className="size-6" />
                 </button>
-                <button type="button" onClick={() => setOpenNotif(true)}  className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
-                  <span className="sr-only">View notifications</span>
-                  <BellIcon aria-hidden="true" className="size-6" />
-                </button>
+                <button 
+        type="button" 
+        onClick={() => setOpenNotif(true)}  
+        className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500 relative"
+      >
+        <span className="sr-only">View notifications</span>
+        <BellIcon aria-hidden="true" className="size-6" />
+        
+        {/* Red dot indicator */}
+        {hasUnreadNotifications && (
+         <span className="absolute top-[8px] right-[8px] block h-2.5 w-2.5 rounded-full bg-red-500 "></span>
+
+
+
+        )}
+      </button>
+
+      <NotificationsDrawer 
+        open={openNotif} 
+        onClose={() => setOpenNotif(false)}
+      />
 
                 <div aria-hidden="true" className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" />
                 <Menu as="div" className="relative">
                   <MenuButton className="relative flex items-center">
-  <span className="absolute -inset-1.5" />
-  <span className="sr-only">Open user menu</span>
-  <div className="relative size-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm outline -outline-offset-1 outline-black/5">
-    {user?.name ? (
-      <>
-        <img
-          alt={user.name}
-          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-          className="size-8 rounded-full object-cover"
-          onError={(e) => {
-            // Hide the image and show initials when image fails to load
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white font-semibold text-sm">
-          {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-        </div>
-      </>
-    ) : (
-      <span>U</span>
-    )}
-  </div>
-  <span className="hidden lg:flex lg:items-center">
-    <span aria-hidden="true" className="ml-4 text-md/6 font-semibold text-white">
-      {user?.name || 'User'}
-    </span>
-    <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
-  </span>
-</MenuButton>
+                    <span className="absolute -inset-1.5" />
+                    <span className="sr-only">Open user menu</span>
+                    <div className="relative size-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm outline -outline-offset-1 outline-black/5">
+                      {user?.name ? (
+                        <>
+                          <img
+                            alt={user.name}
+                            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                            className="size-8 rounded-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white font-semibold text-sm">
+                            {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                          </div>
+                        </>
+                      ) : (
+                        <span>U</span>
+                      )}
+                    </div>
+                    <span className="hidden lg:flex lg:items-center">
+                      <span aria-hidden="true" className="ml-4 text-md/6 font-semibold text-white">
+                        {user?.name || 'User'}
+                      </span>
+                      <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
+                    </span>
+                  </MenuButton>
                   <MenuItems
                     transition
                     className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-[#31373e] py-2 shadow-lg outline-1 outline-gray-900/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
@@ -428,7 +577,7 @@ export default function Example() {
 
           <main className="py-10 bg-[#31373e]">
             <div className="px-2 sm:px-2 lg:px-4">
-              <ActiveComponent user={user} />
+              {renderActiveComponent()}
             </div>
           </main>
         </div>

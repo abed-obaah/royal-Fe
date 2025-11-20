@@ -143,12 +143,13 @@ export default function RewardPage() {
                         <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                         <span className="truncate">Lifetime Earnings</span>
                       </p>
-                      <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold break-words leading-tight">
-                        ${showBalance ? balance : "********"}
-                      </p>
-                      <p className="text-xs sm:text-sm text-blue-200 mt-1 md:mt-2">
+                   <p className="text-base sm:text-lg md:text-xl font-bold break-words leading-tight">
+                      ${showBalance ? Number(balance).toFixed(2) : "********"}
+                    </p>
+
+                      {/* <p className="text-xs sm:text-sm text-blue-200 mt-1 md:mt-2">
                         {actualPaymentsReceived} payments received • {assetsPaidOut} assets paid out
-                      </p>
+                      </p> */}
                     </div>
 
                     <button
@@ -246,8 +247,9 @@ export default function RewardPage() {
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">
                             <p className="font-semibold text-white text-sm sm:text-base">
-                              ${assetEarning.total_earnings?.toString() || '0'}
-                            </p>
+                                ${assetEarning.total_earnings ? Number(assetEarning.total_earnings).toFixed(2) : "0.00"}
+                              </p>
+
                             <p className="text-xs text-green-400">Total Earned</p>
                           </div>
                         </div>
@@ -325,10 +327,13 @@ export default function RewardPage() {
                           </div>
                           <div className="text-right flex-shrink-0 ml-2">
                             <p className="font-semibold text-white text-xs sm:text-sm md:text-base">
-                              ${royalty.amount?.toString() || '0'}
+                              ${Number(royalty.amount ?? 0).toFixed(2)}
                             </p>
-                            <p className="text-xs text-blue-400">{royalty.royalty_rate?.toString() || '0'}% rate</p>
+                            <p className="text-xs text-blue-400">
+                              {Number(royalty.royalty_rate ?? 0).toFixed(2)}% rate
+                            </p>
                           </div>
+
                         </div>
                       ))}
                     </div>

@@ -31,6 +31,15 @@ export default function TransactionHistoryModal({
     dateRange: "all"
   });
 
+  // Debug: Log transaction kinds to see what we're receiving
+  React.useEffect(() => {
+    if (transactions.length > 0) {
+      const kinds = [...new Set(transactions.map(t => t.kind))];
+      console.log('Available transaction kinds:', kinds);
+      console.log('Sample transactions:', transactions.slice(0, 3));
+    }
+  }, [transactions]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'text-green-500 bg-green-500/10 border border-green-500/20';
@@ -41,7 +50,155 @@ export default function TransactionHistoryModal({
   };
 
   const getKindIcon = (kind: string) => {
-    return kind === 'deposit' ? '↘️' : '↗️';
+    const normalizedKind = kind.toLowerCase();
+    switch (normalizedKind) {
+      case 'deposit': return '↘️';
+      case 'withdraw':
+      case 'withdrawal': return '↗️';
+      case 'royalty_earning':
+      case 'royalty': 
+      case 'royalty earning': return '💰';
+      case 'roi_distribution':
+      case 'roi':
+      case 'roi distribution': return '📈';
+      case 'earning': return '💵';
+      case 'distribution': return '📊';
+      default: return '💸';
+    }
+  };
+
+  // Enhanced function to determine if amount should be positive or negative
+  const getAmountDisplay = (transaction: Transaction) => {
+    const amount = parseFloat(transaction.amount).toFixed(2);
+    const normalizedKind = transaction.kind.toLowerCase();
+    
+    console.log(`Processing transaction:`, {
+      kind: transaction.kind,
+      normalizedKind,
+      amount: transaction.amount
+    });
+
+    // List of all transaction types that should be POSITIVE (incoming money)
+    const positiveTransactionTypes = [
+      'deposit',
+      'royalty_earning',
+      'royalty',
+      'royalty earning',
+      'roi_distribution', 
+      'roi',
+      'roi distribution',
+      'earning',
+      'distribution',
+      'dividend',
+      'yield',
+      'interest',
+      'bonus'
+    ];
+
+    // List of all transaction types that should be NEGATIVE (outgoing money)
+    const negativeTransactionTypes = [
+      'withdraw',
+      'withdrawal',
+      'purchase',
+      'investment',
+      'fee',
+      'charge'
+    ];
+
+    // Check if this is a positive transaction type
+    const isPositive = positiveTransactionTypes.some(type => 
+      normalizedKind.includes(type.toLowerCase())
+    );
+
+    // Check if this is a negative transaction type  
+    const isNegative = negativeTransactionTypes.some(type =>
+      normalizedKind.includes(type.toLowerCase())
+    );
+
+    // Default to positive if we can't determine
+    const shouldBePositive = isPositive || !isNegative;
+
+    const displayAmount = shouldBePositive ? `+$${amount}` : `-$${amount}`;
+    
+    console.log(`Amount display: ${displayAmount} (positive: ${shouldBePositive})`);
+    
+    return displayAmount;
+  };
+
+  // Get color class based on transaction kind
+  const getAmountColor = (transaction: Transaction) => {
+    const normalizedKind = transaction.kind.toLowerCase();
+    
+    // Positive transaction types - green
+    const positiveTypes = [
+      'deposit',
+      'royalty_earning',
+      'royalty',
+      'roi_distribution',
+      'roi',
+      'earning',
+      'distribution',
+      'dividend',
+      'yield',
+      'interest',
+      'bonus'
+    ];
+
+    // Negative transaction types - orange/red
+    const negativeTypes = [
+      'withdraw',
+      'withdrawal',
+      'purchase',
+      'investment',
+      'fee',
+      'charge'
+    ];
+
+    const isPositive = positiveTypes.some(type => 
+      normalizedKind.includes(type.toLowerCase())
+    );
+    const isNegative = negativeTypes.some(type =>
+      normalizedKind.includes(type.toLowerCase())
+    );
+
+    // Default to green if we can't determine
+    return isNegative ? 'text-orange-600' : 'text-green-600';
+  };
+
+  // Get background color for icon
+  const getIconBackground = (kind: string) => {
+    const normalizedKind = kind.toLowerCase();
+    
+    if (normalizedKind.includes('royalty') || normalizedKind.includes('earning')) {
+      return 'bg-purple-100';
+    }
+    if (normalizedKind.includes('roi') || normalizedKind.includes('distribution') || normalizedKind.includes('dividend')) {
+      return 'bg-blue-100';
+    }
+    if (normalizedKind.includes('deposit')) {
+      return 'bg-green-100';
+    }
+    if (normalizedKind.includes('withdraw')) {
+      return 'bg-orange-100';
+    }
+    return 'bg-gray-100';
+  };
+
+  // Format transaction kind for display
+  const formatTransactionKind = (kind: string) => {
+    const normalizedKind = kind.toLowerCase();
+    
+    if (normalizedKind.includes('royalty') && normalizedKind.includes('earning')) {
+      return 'Royalty Earnings';
+    }
+    if (normalizedKind.includes('roi') && normalizedKind.includes('distribution')) {
+      return 'ROI Distribution';
+    }
+    
+    // Replace underscores with spaces and capitalize each word
+    return kind
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const formatDate = (dateString: string) => {
@@ -69,6 +226,12 @@ export default function TransactionHistoryModal({
     return [...new Set(methods)] as string[];
   }, [transactions]);
 
+  // Get unique kinds for filter dropdown
+  const uniqueKinds = useMemo(() => {
+    const kinds = transactions.map(t => t.kind).filter(Boolean);
+    return [...new Set(kinds)] as string[];
+  }, [transactions]);
+
   // Filter transactions
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
@@ -76,7 +239,8 @@ export default function TransactionHistoryModal({
       const matchesSearch = searchQuery === "" || 
         transaction.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
         transaction.method?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        transaction.network?.toLowerCase().includes(searchQuery.toLowerCase());
+        transaction.network?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        transaction.kind.toLowerCase().includes(searchQuery.toLowerCase());
 
       // Kind filter
       const matchesKind = filters.kind === "all" || transaction.kind === filters.kind;
@@ -88,7 +252,7 @@ export default function TransactionHistoryModal({
       const matchesMethod = filters.method === "all" || transaction.method === filters.method;
       
       // Date range filter (basic implementation)
-      const matchesDateRange = filters.dateRange === "all" || true; // Add date logic as needed
+      const matchesDateRange = filters.dateRange === "all" || true;
 
       return matchesSearch && matchesKind && matchesStatus && matchesMethod && matchesDateRange;
     });
@@ -107,7 +271,6 @@ export default function TransactionHistoryModal({
 
   // Simple PDF generation using browser print
   const downloadPDF = () => {
-    // Create a printable version of the transactions
     const printContent = `
       <html>
         <head>
@@ -118,8 +281,8 @@ export default function TransactionHistoryModal({
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f5f5f5; font-weight: bold; }
-            .positive { color: green; }
-            .negative { color: orange; }
+            .positive { color: green; font-weight: bold; }
+            .negative { color: orange; font-weight: bold; }
             .completed { background-color: #d4edda; }
             .pending { background-color: #fff3cd; }
             .failed { background-color: #f8d7da; }
@@ -147,19 +310,24 @@ export default function TransactionHistoryModal({
               </tr>
             </thead>
             <tbody>
-              ${filteredTransactions.map(transaction => `
+              ${filteredTransactions.map(transaction => {
+                const amountDisplay = getAmountDisplay(transaction);
+                const isPositive = amountDisplay.startsWith('+');
+                const amountClass = isPositive ? 'positive' : 'negative';
+                
+                return `
                 <tr class="${transaction.status}">
                   <td>${transaction.reference}</td>
-                  <td>${transaction.kind.toUpperCase()}</td>
+                  <td>${formatTransactionKind(transaction.kind)}</td>
                   <td>${transaction.method || 'N/A'}</td>
-                  <td class="${transaction.kind === 'deposit' ? 'positive' : 'negative'}">
-                    ${transaction.kind === 'deposit' ? '+' : '-'}$${parseFloat(transaction.amount).toFixed(2)}
+                  <td class="${amountClass}">
+                    ${amountDisplay}
                   </td>
                   <td>${transaction.status.toUpperCase()}</td>
                   <td>${formatDate(transaction.created_at)}</td>
                   <td>${transaction.network || 'N/A'}</td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
           </table>
           
@@ -180,7 +348,6 @@ export default function TransactionHistoryModal({
     if (printWindow) {
       printWindow.document.write(printContent);
       printWindow.document.close();
-      // Auto-trigger print dialog after a short delay
       setTimeout(() => {
         printWindow.print();
       }, 250);
@@ -190,16 +357,19 @@ export default function TransactionHistoryModal({
   // Download as CSV
   const downloadCSV = () => {
     const headers = ['Reference', 'Type', 'Method', 'Amount', 'Status', 'Date', 'Network', 'Notes'];
-    const csvData = filteredTransactions.map(transaction => [
-      `"${transaction.reference}"`,
-      `"${transaction.kind}"`,
-      `"${transaction.method || ''}"`,
-      transaction.amount,
-      `"${transaction.status}"`,
-      `"${formatDate(transaction.created_at)}"`,
-      `"${transaction.network || ''}"`,
-      `"${transaction.admin_notes || ''}"`
-    ]);
+    const csvData = filteredTransactions.map(transaction => {
+      const amountDisplay = getAmountDisplay(transaction);
+      return [
+        `"${transaction.reference}"`,
+        `"${formatTransactionKind(transaction.kind)}"`,
+        `"${transaction.method || ''}"`,
+        amountDisplay,
+        `"${transaction.status}"`,
+        `"${formatDate(transaction.created_at)}"`,
+        `"${transaction.network || ''}"`,
+        `"${transaction.admin_notes || ''}"`
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -217,13 +387,10 @@ export default function TransactionHistoryModal({
     document.body.removeChild(link);
   };
 
-  // Enhanced download with options
   const handleDownload = () => {
-    // For mobile, default to CSV which is easier to handle
     if (window.innerWidth < 768) {
       downloadCSV();
     } else {
-      // Show a simple choice for desktop users
       if (window.confirm('Download as CSV (Recommended) or open PDF version?')) {
         downloadCSV();
       } else {
@@ -248,7 +415,6 @@ export default function TransactionHistoryModal({
             </p>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-            {/* Download Button - Desktop */}
             <button 
               className="hidden sm:flex p-2 text-gray-500 hover:text-gray-700 border rounded-lg items-center gap-1"
               onClick={handleDownload}
@@ -257,7 +423,6 @@ export default function TransactionHistoryModal({
               <Download size={18} />
             </button>
 
-            {/* Filter Toggle */}
             <button 
               className={`p-2 border rounded-lg ${
                 showFilters ? 'text-blue-600 border-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 border-gray-300'
@@ -290,8 +455,9 @@ export default function TransactionHistoryModal({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Types</option>
-                  <option value="deposit">Deposits</option>
-                  <option value="withdraw">Withdrawals</option>
+                  {uniqueKinds.map(kind => (
+                    <option key={kind} value={kind}>{formatTransactionKind(kind)}</option>
+                  ))}
                 </select>
               </div>
 
@@ -341,7 +507,6 @@ export default function TransactionHistoryModal({
               </div>
             </div>
             
-            {/* Filter Actions */}
             <div className="flex justify-between items-center mt-4">
               <button
                 onClick={resetFilters}
@@ -366,7 +531,7 @@ export default function TransactionHistoryModal({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
-                placeholder="Search by reference, method, or network..."
+                placeholder="Search by reference, method, network, or type..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 sm:py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
@@ -397,117 +562,114 @@ export default function TransactionHistoryModal({
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">
-                {filteredTransactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="border rounded-xl hover:bg-gray-50 transition-colors overflow-hidden"
-                  >
-                    {/* Mobile Layout */}
-                    <div className="sm:hidden p-3">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${
-                            transaction.kind === 'deposit' ? 'bg-green-100' : 'bg-orange-100'
-                          }`}>
-                            {getKindIcon(transaction.kind)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-semibold text-gray-900 capitalize text-sm truncate">
-                                {transaction.kind}
-                              </p>
-                              <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(transaction.status)} flex-shrink-0`}>
-                                {transaction.status}
-                              </span>
+                {filteredTransactions.map((transaction) => {
+                  const amountDisplay = getAmountDisplay(transaction);
+                  const amountColor = getAmountColor(transaction);
+                  const iconBackground = getIconBackground(transaction.kind);
+                  const formattedKind = formatTransactionKind(transaction.kind);
+                  
+                  return (
+                    <div
+                      key={transaction.id}
+                      className="border rounded-xl hover:bg-gray-50 transition-colors overflow-hidden"
+                    >
+                      {/* Mobile Layout */}
+                      <div className="sm:hidden p-3">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${iconBackground}`}>
+                              {getKindIcon(transaction.kind)}
                             </div>
-                            <p className="text-gray-500 text-xs">
-                              {formatDateMobile(transaction.created_at)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-semibold text-gray-900 text-sm truncate">
+                                  {formattedKind}
+                                </p>
+                                <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(transaction.status)} flex-shrink-0`}>
+                                  {transaction.status}
+                                </span>
+                              </div>
+                              <p className="text-gray-500 text-xs">
+                                {formatDateMobile(transaction.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <p className={`text-base font-bold ${amountColor}`}>
+                              {amountDisplay}
                             </p>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <p className={`text-base font-bold ${
-                            transaction.kind === 'deposit' ? 'text-green-600' : 'text-orange-600'
-                          }`}>
-                            {transaction.kind === 'deposit' ? '+' : '-'}${parseFloat(transaction.amount).toFixed(2)}
-                          </p>
-                          <p className="text-gray-500 text-xs capitalize">
-                            {transaction.method}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Details */}
-                      <div className="space-y-2 pt-2 border-t border-gray-100">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Reference:</span>
-                          <span className="text-gray-700 font-mono truncate ml-2">{transaction.reference}</span>
-                        </div>
-                        {transaction.network && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Network:</span>
-                            <span className="text-gray-700 capitalize">{transaction.network}</span>
-                          </div>
-                        )}
-                        {transaction.admin_notes && (
-                          <div className="text-xs">
-                            <span className="text-gray-500">Note: </span>
-                            <span className="text-gray-700 line-clamp-2">{transaction.admin_notes}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Desktop Layout */}
-                    <div className="hidden sm:flex items-center justify-between p-4">
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                          transaction.kind === 'deposit' ? 'bg-green-100' : 'bg-orange-100'
-                        }`}>
-                          {getKindIcon(transaction.kind)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <p className="font-semibold text-gray-900 capitalize">
-                              {transaction.kind}
-                            </p>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
-                              {transaction.status}
-                            </span>
-                          </div>
-                          <p className="text-gray-500 text-sm">
-                            {formatDate(transaction.created_at)}
-                          </p>
-                          <p className="text-gray-400 text-xs font-mono">
-                            Ref: {transaction.reference}
-                          </p>
-                          {transaction.network && (
                             <p className="text-gray-500 text-xs capitalize">
-                              Network: {transaction.network}
+                              {transaction.method}
                             </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-gray-100">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Reference:</span>
+                            <span className="text-gray-700 font-mono truncate ml-2">{transaction.reference}</span>
+                          </div>
+                          {transaction.network && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-gray-500">Network:</span>
+                              <span className="text-gray-700 capitalize">{transaction.network}</span>
+                            </div>
+                          )}
+                          {transaction.admin_notes && (
+                            <div className="text-xs">
+                              <span className="text-gray-500">Note: </span>
+                              <span className="text-gray-700 line-clamp-2">{transaction.admin_notes}</span>
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className={`text-lg font-bold ${
-                          transaction.kind === 'deposit' ? 'text-green-600' : 'text-orange-600'
-                        }`}>
-                          {transaction.kind === 'deposit' ? '+' : '-'}${parseFloat(transaction.amount).toFixed(2)}
-                        </p>
-                        <p className="text-gray-500 text-sm capitalize">
-                          {transaction.method}
-                        </p>
-                        {transaction.admin_notes && (
-                          <p className="text-gray-400 text-xs mt-1 max-w-xs">
-                            Note: {transaction.admin_notes}
+                      {/* Desktop Layout */}
+                      <div className="hidden sm:flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-4 flex-1">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${iconBackground}`}>
+                            {getKindIcon(transaction.kind)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <p className="font-semibold text-gray-900">
+                                {formattedKind}
+                              </p>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
+                                {transaction.status}
+                              </span>
+                            </div>
+                            <p className="text-gray-500 text-sm">
+                              {formatDate(transaction.created_at)}
+                            </p>
+                            <p className="text-gray-400 text-xs font-mono">
+                              Ref: {transaction.reference}
+                            </p>
+                            {transaction.network && (
+                              <p className="text-gray-500 text-xs capitalize">
+                                Network: {transaction.network}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className={`text-lg font-bold ${amountColor}`}>
+                            {amountDisplay}
                           </p>
-                        )}
+                          <p className="text-gray-500 text-sm capitalize">
+                            {transaction.method}
+                          </p>
+                          {transaction.admin_notes && (
+                            <p className="text-gray-400 text-xs mt-1 max-w-xs">
+                              Note: {transaction.admin_notes}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
